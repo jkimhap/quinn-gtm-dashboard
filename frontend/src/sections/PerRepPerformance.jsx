@@ -51,20 +51,20 @@ function AEView({ slug, perf }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Total ARR Closed (12mo)" value={fmt$(perf.summary?.total_arr_closed, { compact: true })} />
+        <StatCard label="Total TCV Closed (12mo)" value={fmt$(perf.summary?.total_tcv_closed, { compact: true })} />
         <StatCard label="Win Rate (90d)" value={fmtPct(perf.summary?.win_rate_90d_pct)} />
         <StatCard label="Avg Sales Cycle" value={fmtDays(perf.summary?.avg_cycle_days)} sub="opp created → closed won" />
         <StatCard label="Avg ACV" value={fmt$(perf.summary?.avg_acv, { compact: true })} sub="last 12 months" />
       </div>
       <div className="card">
-        <div className="text-xs text-gray-400 mb-3">New ARR Closed per Month</div>
+        <div className="text-xs text-gray-400 mb-3">New TCV Closed per Month</div>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={(perf.monthly_arr || []).slice(-12)} margin={{ top: 20, right: 4, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} />
             <YAxis tickFormatter={v => fmt$(v, { compact: true })} tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} width={52} />
             <Tooltip contentStyle={ttStyle} formatter={v => [fmt$(v, { compact: true })]} />
-            <Bar dataKey="value" name="ARR" fill={color} radius={[3,3,0,0]}>
+            <Bar dataKey="value" name="TCV" fill={color} radius={[3,3,0,0]}>
               <LabelList dataKey="value" position="top" style={{ fontSize: 9, fill: "#9ca3af" }}
                 formatter={v => v > 0 ? fmt$(v, { compact: true }) : ""} />
             </Bar>
@@ -86,7 +86,7 @@ function CompareView({ allPerf }) {
   return (
     <div className="space-y-4">
       <div className="card">
-        <div className="text-xs text-gray-400 mb-3">New ARR Closed per Month — All AEs</div>
+        <div className="text-xs text-gray-400 mb-3">New TCV Closed per Month — All AEs</div>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
@@ -108,7 +108,7 @@ function CompareView({ allPerf }) {
             <div key={s} className="card" style={{ borderColor: (REP_COLORS[s] || "#374151") + "55" }}>
               <div className="text-sm font-semibold mb-3" style={{ color: REP_COLORS[s] }}>{REP_LABELS[s]}</div>
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between"><span className="text-gray-500">ARR Closed (12mo)</span><span className="text-white">{fmt$(p?.summary?.total_arr_closed, { compact: true })}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">TCV Closed (12mo)</span><span className="text-white">{fmt$(p?.summary?.total_tcv_closed, { compact: true })}</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">Deals Closed</span><span className="text-white">{p?.summary?.total_deals_closed ?? "—"}</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">Win Rate (90d)</span><span className="text-white">{fmtPct(p?.summary?.win_rate_90d_pct)}</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">Avg Cycle</span><span className="text-white">{fmtDays(p?.summary?.avg_cycle_days)}</span></div>

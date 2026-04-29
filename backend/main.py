@@ -420,12 +420,12 @@ def rep_performance(slug: str):
     cycles = [d["days_to_close"] for d in won if d.get("days_to_close")]
     avg_cycle = round(sum(cycles) / len(cycles), 1) if cycles else None
 
-    # Average ACV
-    acvs = [d["acv"] for d in won if d.get("acv")]
-    avg_acv = round(sum(acvs) / len(acvs), 2) if acvs else None
+    # Avg ACV = total TCV ÷ deals closed
+    total_tcv = sum(d.get("amount") or 0 for d in won)
+    avg_acv = round(total_tcv / len(won), 2) if won else None
 
-    # Monthly closed ARR — last 12 months (reps with short tenure naturally show $0 for early months)
-    monthly_arr = build_monthly_series(won, "closed_won_date", "arr", 12)
+    # Monthly closed TCV — last 12 months
+    monthly_arr = build_monthly_series(won, "closed_won_date", "amount", 12)
     monthly_count = build_monthly_count(won, "closed_won_date", 12)
 
     # Current pipeline by bucket
@@ -460,7 +460,7 @@ def rep_performance(slug: str):
         "name": cfg["name"],
         "role": cfg["role"],
         "summary": {
-            "total_arr_closed": round(sum(d.get("arr") or 0 for d in won), 2),
+            "total_tcv_closed": round(total_tcv, 2),
             "total_deals_closed": len(won),
             "win_rate_90d_pct": win_rate,
             "avg_cycle_days": avg_cycle,
