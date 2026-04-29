@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #111827;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 3px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-gray-900 border border-gray-800 rounded-xl p-5;
+  }
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+  }
+  .badge-1a { @apply bg-emerald-900/50 text-emerald-300 border border-emerald-800; }
+  .badge-1b { @apply bg-teal-900/50 text-teal-300 border border-teal-800; }
+  .badge-2a { @apply bg-blue-900/50 text-blue-300 border border-blue-800; }
+  .badge-2b { @apply bg-gray-800 text-gray-400 border border-gray-700; }
+  .badge-3  { @apply bg-orange-900/50 text-orange-300 border border-orange-800; }
+  .badge-active   { @apply bg-emerald-900/50 text-emerald-300 border border-emerald-800; }
+  .badge-at-risk  { @apply bg-amber-900/50 text-amber-300 border border-amber-800; }
+  .badge-churned  { @apply bg-red-900/50 text-red-300 border border-red-800; }
+  .unavailable { @apply inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded border border-gray-700; }
+}

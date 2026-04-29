@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: quinn-gtm-dashboard
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: >
+      cd frontend && npm install && npm run build &&
+      cd ../backend && pip install -r requirements.txt
+    startCommand: bash start.sh
+    envVars:
+      - key: HUBSPOT_API_KEY
+        sync: false
+      - key: GONG_ACCESS_KEY
+        sync: false
+      - key: GONG_SECRET
+        sync: false
