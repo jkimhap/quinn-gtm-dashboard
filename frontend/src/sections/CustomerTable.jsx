@@ -26,7 +26,6 @@ const COLS = [
   { key: "vertical",      label: "Vertical",        sortable: true },
   { key: "tier",          label: "Tier",            sortable: true },
   { key: "employees",     label: "Employees",       sortable: true },
-  { key: "locations",     label: "Locations",       sortable: true },
   { key: "tcv",           label: "TCV",             sortable: true, note: "Total contract value" },
   { key: "arr",           label: "ARR",             sortable: true, note: "Annual — from hs_arr in HubSpot" },
   { key: "mrr",           label: "MRR",             sortable: true, note: "ARR ÷ 12" },
@@ -34,9 +33,7 @@ const COLS = [
   { key: "contract_end",  label: "Renewal",         sortable: true },
   { key: "source",        label: "Source",          sortable: true },
   { key: "owner",         label: "Owner",           sortable: true },
-  { key: "csm",           label: "CSM",             sortable: false },
   { key: "status",        label: "Status",          sortable: true },
-  { key: "products",      label: "Products",        sortable: false },
 ];
 
 export default function CustomerTable() {
@@ -194,9 +191,6 @@ export default function CustomerTable() {
                 <td className="px-3 py-2.5 text-gray-400 text-right tabular-nums">
                   {row.employees ? row.employees.toLocaleString() : "—"}
                 </td>
-                <td className="px-3 py-2.5 text-gray-400 text-right tabular-nums">
-                  {row.locations ?? "—"}
-                </td>
                 <td className="px-3 py-2.5 text-white text-right tabular-nums font-medium">
                   {row.tcv ? fmt$(row.tcv, { compact: true }) : "—"}
                 </td>
@@ -218,16 +212,10 @@ export default function CustomerTable() {
                 <td className="px-3 py-2.5 text-gray-300">
                   {row.owner || "—"}
                 </td>
-                <td className="px-3 py-2.5 text-gray-400">
-                  {row.csm || "—"}
-                </td>
                 <td className="px-3 py-2.5">
                   {row.status && STATUS_META[row.status]
                     ? <span className={STATUS_META[row.status].cls}>{STATUS_META[row.status].label}</span>
                     : <span className="text-gray-600">—</span>}
-                </td>
-                <td className="px-3 py-2.5 text-gray-400 text-xs">
-                  {row.products || "—"}
                 </td>
               </tr>
             ))}
