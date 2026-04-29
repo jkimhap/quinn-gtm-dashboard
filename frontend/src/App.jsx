@@ -6,6 +6,7 @@ import ClosedWonTrends from "./sections/ClosedWonTrends";
 import PerRepPerformance from "./sections/PerRepPerformance";
 import PipelineFunnel from "./sections/PipelineFunnel";
 import LeadingIndicators from "./sections/LeadingIndicators";
+import CallIntelligence from "./sections/CallIntelligence";
 
 const NAV = [
   { id: "vitals",    label: "Vitals" },
@@ -14,6 +15,7 @@ const NAV = [
   { id: "reps",      label: "Rep Performance" },
   { id: "pipeline",  label: "Pipeline" },
   { id: "leading",   label: "Leading Indicators" },
+  { id: "calls",     label: "Call Intelligence" },
 ];
 
 export default function App() {
@@ -87,6 +89,7 @@ export default function App() {
           <section id="reps" className="scroll-mt-16"><PerRepPerformance /></section>
           <section id="pipeline" className="scroll-mt-16"><PipelineFunnel /></section>
           <section id="leading" className="scroll-mt-16"><LeadingIndicators /></section>
+          <section id="calls" className="scroll-mt-16"><CallIntelligence /></section>
         </div>
       </main>
     </div>

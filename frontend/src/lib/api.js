@@ -27,4 +27,7 @@ export const api = {
   leadingIndicators: () => get("/leading-indicators"),
   retention: () => get("/retention"),
   locations: () => get("/locations"),
+  calls: (params) => get("/calls", params),
+  callTranscript: (gongId) => get(`/calls/${gongId}/transcript`),
+  companyCalls: (companyName) => get(`/companies/${encodeURIComponent(companyName)}/calls`),
 };

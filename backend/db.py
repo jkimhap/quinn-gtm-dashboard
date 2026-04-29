@@ -78,8 +78,15 @@ CREATE TABLE IF NOT EXISTS gong_calls (
     rep_slug        TEXT,
     deal_id         TEXT,
     company_name    TEXT,
+    matched_company TEXT,
     direction       TEXT,
     raw             TEXT,
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS gong_transcripts (
+    gong_id         TEXT PRIMARY KEY,
+    transcript_text TEXT,
     updated_at      TEXT DEFAULT (datetime('now'))
 );
 
@@ -206,17 +213,26 @@ def upsert_gong_call(conn: sqlite3.Connection, row: dict):
     conn.execute("""
         INSERT INTO gong_calls
             (gong_id, title, started_at, duration_secs, rep_email, rep_slug,
-             deal_id, company_name, direction, raw, updated_at)
+             deal_id, company_name, matched_company, direction, raw, updated_at)
         VALUES
             (:gong_id,:title,:started_at,:duration_secs,:rep_email,:rep_slug,
-             :deal_id,:company_name,:direction,:raw, datetime('now'))
+             :deal_id,:company_name,:matched_company,:direction,:raw, datetime('now'))
         ON CONFLICT(gong_id) DO UPDATE SET
             title=excluded.title, started_at=excluded.started_at,
             duration_secs=excluded.duration_secs, rep_email=excluded.rep_email,
             rep_slug=excluded.rep_slug, deal_id=excluded.deal_id,
-            company_name=excluded.company_name, direction=excluded.direction,
-            raw=excluded.raw, updated_at=datetime('now')
+            company_name=excluded.company_name, matched_company=excluded.matched_company,
+            direction=excluded.direction, raw=excluded.raw, updated_at=datetime('now')
     """, row)
+
+
+def upsert_gong_transcript(conn: sqlite3.Connection, gong_id: str, text: str):
+    conn.execute("""
+        INSERT INTO gong_transcripts (gong_id, transcript_text, updated_at)
+        VALUES (?, ?, datetime('now'))
+        ON CONFLICT(gong_id) DO UPDATE SET
+            transcript_text=excluded.transcript_text, updated_at=datetime('now')
+    """, (gong_id, text))
 
 
 def set_snapshot_meta(conn: sqlite3.Connection, source: str, status: str,

@@ -750,6 +750,72 @@ def locations():
     }
 
 
+# ── /api/calls ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/calls")
+def calls_list(
+    company: str = Query(None),
+    rep: str = Query(None),
+    q: str = Query(None),
+    limit: int = Query(50, le=200),
+):
+    where, params = ["1=1"], []
+    if company:
+        where.append("(matched_company LIKE ? OR company_name LIKE ? OR title LIKE ?)")
+        params += [f"%{company}%", f"%{company}%", f"%{company}%"]
+    if rep:
+        where.append("rep_slug = ?")
+        params.append(rep)
+    if q:
+        where.append("title LIKE ?")
+        params.append(f"%{q}%")
+    sql = f"""
+        SELECT g.gong_id, g.title, g.started_at, g.duration_secs,
+               g.rep_slug, g.matched_company, g.company_name,
+               CASE WHEN t.transcript_text IS NOT NULL AND length(t.transcript_text) > 10
+                    THEN 1 ELSE 0 END as has_transcript
+        FROM gong_calls g
+        LEFT JOIN gong_transcripts t ON t.gong_id = g.gong_id
+        WHERE {' AND '.join(where)}
+        ORDER BY g.started_at DESC
+        LIMIT ?
+    """
+    params.append(limit)
+    rows = db.q(sql, tuple(params))
+    return {"data": rows, "count": len(rows)}
+
+
+@app.get("/api/calls/{gong_id}/transcript")
+def call_transcript(gong_id: str):
+    row = db.q1("SELECT * FROM gong_calls WHERE gong_id = ?", (gong_id,))
+    transcript = db.q1("SELECT transcript_text FROM gong_transcripts WHERE gong_id = ?", (gong_id,))
+    if not row:
+        return {"error": "Call not found"}
+    return {
+        "gong_id": gong_id,
+        "title": row.get("title"),
+        "started_at": row.get("started_at"),
+        "duration_secs": row.get("duration_secs"),
+        "rep_slug": row.get("rep_slug"),
+        "matched_company": row.get("matched_company"),
+        "transcript": transcript.get("transcript_text") if transcript else None,
+    }
+
+
+@app.get("/api/companies/{company_name}/calls")
+def company_calls(company_name: str):
+    rows = db.q("""
+        SELECT g.gong_id, g.title, g.started_at, g.duration_secs, g.rep_slug,
+               CASE WHEN t.transcript_text IS NOT NULL AND length(t.transcript_text) > 10
+                    THEN 1 ELSE 0 END as has_transcript
+        FROM gong_calls g
+        LEFT JOIN gong_transcripts t ON t.gong_id = g.gong_id
+        WHERE g.matched_company LIKE ? OR g.company_name LIKE ?
+        ORDER BY g.started_at DESC
+    """, (f"%{company_name}%", f"%{company_name}%"))
+    return {"data": rows, "count": len(rows)}
+
+
 # ── Serve built frontend (production) ──────────────────────────────────────────
 import os
 from fastapi.staticfiles import StaticFiles

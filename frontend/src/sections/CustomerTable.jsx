@@ -2,6 +2,85 @@ import React, { useEffect, useState, useMemo } from "react";
 import { api } from "../lib/api";
 import { fmt$, fmtDate, fmtPct } from "../lib/format";
 
+const REP_LABELS = { arlen: "Arlen M.", derek: "Derek G.", grant: "Grant A.", luke: "Luke A." };
+
+function fmtDuration(secs) {
+  if (!secs) return "—";
+  return `${Math.floor(secs / 60)}m`;
+}
+
+function CompanyCallsModal({ company, onClose }) {
+  const [data, setData] = useState(null);
+  const [activeId, setActiveId] = useState(null);
+  const [transcript, setTranscript] = useState(null);
+
+  useEffect(() => {
+    api.companyCalls(company).then(setData);
+  }, [company]);
+
+  const openTranscript = (id) => {
+    setActiveId(id);
+    setTranscript(null);
+    api.callTranscript(id).then(setTranscript);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end" onClick={onClose}>
+      <div className="h-full w-full max-w-2xl bg-gray-900 border-l border-gray-700 shadow-2xl overflow-y-auto flex flex-col"
+        onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+          <div>
+            <div className="text-white font-semibold">{company}</div>
+            <div className="text-xs text-gray-500 mt-0.5">Gong call history</div>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg">✕</button>
+        </div>
+
+        {!data ? (
+          <div className="px-6 py-4 text-gray-600 text-sm">Loading…</div>
+        ) : data.count === 0 ? (
+          <div className="px-6 py-4 text-gray-600 text-sm">No calls found for this company.</div>
+        ) : activeId ? (
+          <div className="flex flex-col flex-1">
+            <div className="px-6 py-3 border-b border-gray-800 flex items-center gap-3">
+              <button onClick={() => { setActiveId(null); setTranscript(null); }}
+                className="text-xs text-gray-400 hover:text-white">← Back to calls</button>
+              {transcript && (
+                <span className="text-xs text-gray-500">{transcript.title} · {fmtDate(transcript.started_at)}</span>
+              )}
+            </div>
+            <div className="px-6 py-4 flex-1">
+              {!transcript ? (
+                <div className="text-gray-600 text-sm">Loading transcript…</div>
+              ) : !transcript.transcript ? (
+                <div className="text-gray-600 text-sm">No transcript available.</div>
+              ) : (
+                <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{transcript.transcript}</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1">
+            {data.data.map(call => (
+              <div key={call.gong_id}
+                className={`px-6 py-3 border-b border-gray-800/50 ${call.has_transcript ? "hover:bg-gray-800/30 cursor-pointer" : "opacity-50"}`}
+                onClick={() => call.has_transcript && openTranscript(call.gong_id)}>
+                <div className="text-sm text-white">{call.title}</div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {new Date(call.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  {" · "}{fmtDuration(call.duration_secs)}
+                  {" · "}{REP_LABELS[call.rep_slug] || call.rep_slug || "—"}
+                  {call.has_transcript && <span className="ml-2 text-quinn-400">transcript available</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const TIER_META = {
   "1A": { cls: "badge badge-1a", label: "1A" },
   "1B": { cls: "badge badge-1b", label: "1B" },
@@ -48,6 +127,7 @@ export default function CustomerTable() {
   const [filterStatus, setFilterStatus] = useState("active,at-risk");
   const [sortKey, setSortKey] = useState("arr");
   const [sortDir, setSortDir] = useState("desc");
+  const [callsCompany, setCallsCompany] = useState(null);
 
   // Fetch full unfiltered list once to populate dropdown options
   useEffect(() => {
@@ -177,8 +257,13 @@ export default function CustomerTable() {
             ) : rows.map((row, i) => (
               <tr key={row.deal_id || i}
                 className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
-                <td className="px-3 py-2.5 font-medium text-white whitespace-nowrap max-w-[200px] truncate">
-                  {row.company || <Unavailable />}
+                <td className="px-3 py-2.5 font-medium whitespace-nowrap max-w-[200px] truncate">
+                  {row.company
+                    ? <button onClick={() => setCallsCompany(row.company)}
+                        className="text-white hover:text-quinn-300 transition-colors text-left truncate w-full">
+                        {row.company}
+                      </button>
+                    : <Unavailable />}
                 </td>
                 <td className="px-3 py-2.5 text-gray-300 whitespace-nowrap">
                   {row.vertical || <Unavailable />}
@@ -222,6 +307,10 @@ export default function CustomerTable() {
           </tbody>
         </table>
       </div>
+
+      {callsCompany && (
+        <CompanyCallsModal company={callsCompany} onClose={() => setCallsCompany(null)} />
+      )}
     </div>
   );
 }
