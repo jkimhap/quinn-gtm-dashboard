@@ -62,28 +62,81 @@ def paginate_calls(from_dt):
     return results
 
 
-def fetch_transcripts(call_ids, user_map=None):
-    """POST /v2/calls/transcript in batches of 50. Returns {gong_id: labeled_text}.
+def fetch_speaker_map(call_ids, user_map):
+    """
+    POST /v2/calls/extensive in batches of 50.
+    Returns {call_id: {speaker_id: label_string}}.
 
-    Each line is formatted as "[Speaker Name]: sentence" so AI summaries can
-    distinguish rep vs. prospect. Reps are identified via user_map (gong_id→slug);
-    all other speakers are labelled "Prospect".
+    The transcript API uses a per-call `speakerId` that is DIFFERENT from the
+    Gong user ID returned by /v2/users.  The extensive endpoint's `parties`
+    array bridges them:  party.speakerId ↔ party.userId (= Gong user ID).
+
+    Internal (Quinn) parties are labelled with their first name; external
+    parties get their real name so the AI summary knows who said what.
     """
     from config import REPS as _REPS
-    user_map = user_map or {}
+    result = {}
 
+    for i in range(0, len(call_ids), 50):
+        batch = call_ids[i:i+50]
+        try:
+            data = gong_post("/v2/calls/extensive", {
+                "filter": {"callIds": batch},
+                "contentSelector": {
+                    "exposedFields": {"parties": True}
+                },
+            })
+            for call in data.get("calls", []):
+                cid = str(call.get("metaData", {}).get("id") or "")
+                speaker_labels = {}
+                for p in call.get("parties", []):
+                    sid = str(p.get("speakerId") or "")
+                    if not sid:
+                        continue
+                    uid = str(p.get("userId") or "")
+                    affiliation = p.get("affiliation", "")
+                    name = (p.get("name") or "").strip()
+
+                    if affiliation == "Internal":
+                        # Map via userId → slug → REPS name
+                        slug = user_map.get(uid, "")
+                        if slug and slug in _REPS:
+                            label = _REPS[slug]["name"].split()[0]  # first name only
+                        else:
+                            label = name.split()[0] if name else "Quinn Team"
+                    else:
+                        # Use the prospect's real name for richer AI context
+                        label = name or "Prospect"
+
+                    speaker_labels[sid] = label
+                if cid:
+                    result[cid] = speaker_labels
+        except Exception as e:
+            log.warning("Extensive batch failed (speaker map): %s", e)
+
+    return result
+
+
+def fetch_transcripts(call_ids, speaker_map=None):
+    """POST /v2/calls/transcript in batches of 50. Returns {gong_id: labeled_text}.
+
+    Each line is "[Speaker Name]: sentence".  speaker_map is {call_id: {speaker_id: label}}
+    built by fetch_speaker_map(); falls back to "Prospect" if not available.
+    """
+    speaker_map = speaker_map or {}
     results = {}
+
     for i in range(0, len(call_ids), 50):
         batch = call_ids[i:i+50]
         try:
             data = gong_post("/v2/calls/transcript", {"filter": {"callIds": batch}})
             for ct in data.get("callTranscripts", []):
                 cid = ct["callId"]
+                call_speakers = speaker_map.get(cid, {})
                 lines = []
                 for speaker_block in ct.get("transcript", []):
-                    speaker_id = str(speaker_block.get("speakerId") or "")
-                    slug = user_map.get(speaker_id, "")
-                    label = _REPS[slug]["name"] if slug and slug in _REPS else "Prospect"
+                    sid = str(speaker_block.get("speakerId") or "")
+                    label = call_speakers.get(sid, "Prospect")
                     for s in speaker_block.get("sentences", []):
                         text = s.get("text", "").strip()
                         if text:
@@ -91,6 +144,7 @@ def fetch_transcripts(call_ids, user_map=None):
                 results[cid] = "\n".join(lines)
         except Exception as e:
             log.warning("Transcript batch failed: %s", e)
+
     return results
 
 
@@ -222,10 +276,15 @@ def run():
         calls = paginate_calls(since)
         log.info("Fetched %d calls from Gong", len(calls))
 
-        # Fetch transcripts for all calls in batches (with speaker attribution)
+        # Build speakerId→label map via /v2/calls/extensive (parties)
         call_ids = [str(c["id"]) for c in calls]
+        log.info("Fetching speaker parties for %d calls...", len(call_ids))
+        speaker_map = fetch_speaker_map(call_ids, user_map)
+        log.info("Speaker map built for %d calls", len(speaker_map))
+
+        # Fetch transcripts with correct speaker labels
         log.info("Fetching transcripts for %d calls...", len(call_ids))
-        transcripts = fetch_transcripts(call_ids, user_map=user_map)
+        transcripts = fetch_transcripts(call_ids, speaker_map=speaker_map)
         log.info("Got %d transcripts", len(transcripts))
 
         with db.tx() as conn:
