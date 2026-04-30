@@ -7,10 +7,13 @@ Run: uvicorn main:app --reload --port 8000
 
 import io
 import csv
+import json
+import os
+import re
 from datetime import date, timedelta, datetime
 from typing import Any
 
-from fastapi import FastAPI, Query, Response
+from fastapi import FastAPI, Query, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 import db
@@ -800,6 +803,116 @@ def call_transcript(gong_id: str):
         "matched_company": row.get("matched_company"),
         "transcript": transcript.get("transcript_text") if transcript else None,
     }
+
+
+_SUMMARY_PROMPT = """\
+You are a sales call analyst for Quinn, a B2B AI voice agent platform that helps field-service \
+companies (HVAC, plumbing, pest control, roofing, etc.) never miss a customer call.
+
+Analyze the sales call transcript below and return ONLY a valid JSON object — no markdown fences, \
+no explanation, just the JSON.
+
+Required structure:
+{{
+  "bant": {{
+    "budget": "<1-2 sentences on budget signals, pricing discussed, affordability concerns, or null>",
+    "authority": "<who is the decision-maker and whether they have budget authority, or null>",
+    "need": "<the specific business problem / pain they want to solve>",
+    "timeline": "<when they want to buy or go live, any urgency signals, or null>"
+  }},
+  "verdict": "<exactly one of: qualify | disqualify | nurture>",
+  "verdict_reason": "<1-2 sentence explanation>",
+  "action_items": ["<specific next step>", "..."],
+  "coaching": ["<specific improvement the rep could make, with an example from the call>", "..."]
+}}
+
+Verdict guide:
+- qualify   → clear need + buying intent + right ICP (field-service company)
+- disqualify → wrong industry fit, no real need, or no budget
+- nurture   → interested but timing or decision authority is unclear
+
+Use JSON null (not the string "null") for BANT fields that weren't discussed.
+Limit coaching to 2-4 specific, actionable notes.
+
+Call context: {context}
+
+Transcript:
+{transcript}
+"""
+
+MODEL = "claude-3-5-haiku-20241022"
+
+
+@app.get("/api/calls/{gong_id}/summary")
+def call_summary(gong_id: str):
+    # ── Serve from cache ────────────────────────────────────────────────────────
+    cached = db.q1("SELECT summary_json FROM gong_summaries WHERE gong_id = ?", (gong_id,))
+    if cached and cached.get("summary_json"):
+        return json.loads(cached["summary_json"])
+
+    # ── Fetch transcript ────────────────────────────────────────────────────────
+    transcript_row = db.q1(
+        "SELECT transcript_text FROM gong_transcripts WHERE gong_id = ?", (gong_id,)
+    )
+    if not transcript_row or not (transcript_row.get("transcript_text") or "").strip():
+        return {"error": "No transcript available for this call."}
+
+    transcript_text = transcript_row["transcript_text"].strip()
+    if len(transcript_text) < 100:
+        return {"error": "Transcript is too short to analyse."}
+
+    # ── Call metadata ───────────────────────────────────────────────────────────
+    call = db.q1(
+        "SELECT title, rep_slug, matched_company FROM gong_calls WHERE gong_id = ?",
+        (gong_id,),
+    )
+    rep_name = REPS.get(call["rep_slug"] or "", {}).get("name", call["rep_slug"] or "Unknown") if call else "Unknown"
+    context = (
+        f"Company: {(call or {}).get('matched_company') or 'Unknown'} | "
+        f"Rep: {rep_name} | "
+        f"Call title: {(call or {}).get('title') or ''}"
+    )
+
+    # ── Generate with Claude ────────────────────────────────────────────────────
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return {"error": "ANTHROPIC_API_KEY is not configured on this server."}
+
+    try:
+        import anthropic  # lazy import — only needed for this endpoint
+        client = anthropic.Anthropic(api_key=api_key)
+        prompt = _SUMMARY_PROMPT.format(
+            context=context,
+            transcript=transcript_text[:14000],  # ~10k tokens, well within haiku context
+        )
+        message = client.messages.create(
+            model=MODEL,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = message.content[0].text.strip()
+        # Strip markdown code fences Claude sometimes adds
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw)
+        summary = json.loads(raw)
+    except json.JSONDecodeError as e:
+        return {"error": f"AI returned invalid JSON: {e}"}
+    except Exception as e:
+        return {"error": f"AI analysis failed: {e}"}
+
+    # ── Cache and return ────────────────────────────────────────────────────────
+    with db.tx() as conn:
+        db.upsert_gong_summary(conn, gong_id, json.dumps(summary), MODEL)
+
+    return summary
+
+
+@app.get("/api/calls/{gong_id}/summary/refresh")
+def call_summary_refresh(gong_id: str):
+    """Force-regenerate the cached summary (e.g. after transcript update)."""
+    with db.tx() as conn:
+        conn.execute("DELETE FROM gong_summaries WHERE gong_id = ?", (gong_id,))
+    return call_summary(gong_id)
 
 
 @app.get("/api/companies/{company_name}/calls")

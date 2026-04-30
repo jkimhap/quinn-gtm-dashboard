@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { api } from "../lib/api";
 import { fmt$, fmtDate, fmtPct } from "../lib/format";
+import CallSummary from "../components/CallSummary";
 
 const REP_LABELS = { arlen: "Arlen M.", derek: "Derek G.", grant: "Grant A.", luke: "Luke A." };
 
@@ -55,7 +56,12 @@ function CompanyCallsModal({ company, onClose }) {
               ) : !transcript.transcript ? (
                 <div className="text-gray-600 text-sm">No transcript available.</div>
               ) : (
-                <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{transcript.transcript}</p>
+                <>
+                  <CallSummary gongId={activeId} hasTranscript={!!transcript.transcript} />
+                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                    {transcript.transcript}
+                  </p>
+                </>
               )}
             </div>
           </div>

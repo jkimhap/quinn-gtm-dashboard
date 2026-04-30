@@ -29,5 +29,7 @@ export const api = {
   locations: () => get("/locations"),
   calls: (params) => get("/calls", params),
   callTranscript: (gongId) => get(`/calls/${gongId}/transcript`),
+  callSummary: (gongId) => get(`/calls/${gongId}/summary`),
+  callSummaryRefresh: (gongId) => get(`/calls/${gongId}/summary/refresh`),
   companyCalls: (companyName) => get(`/companies/${encodeURIComponent(companyName)}/calls`),
 };

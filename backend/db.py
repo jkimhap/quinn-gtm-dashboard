@@ -90,6 +90,13 @@ CREATE TABLE IF NOT EXISTS gong_transcripts (
     updated_at      TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS gong_summaries (
+    gong_id         TEXT PRIMARY KEY,
+    summary_json    TEXT,
+    model           TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS owners (
     hubspot_owner_id    TEXT PRIMARY KEY,
     email               TEXT,
@@ -233,6 +240,16 @@ def upsert_gong_transcript(conn: sqlite3.Connection, gong_id: str, text: str):
         ON CONFLICT(gong_id) DO UPDATE SET
             transcript_text=excluded.transcript_text, updated_at=datetime('now')
     """, (gong_id, text))
+
+
+def upsert_gong_summary(conn: sqlite3.Connection, gong_id: str, summary_json: str, model: str):
+    conn.execute("""
+        INSERT INTO gong_summaries (gong_id, summary_json, model, created_at)
+        VALUES (?, ?, ?, datetime('now'))
+        ON CONFLICT(gong_id) DO UPDATE SET
+            summary_json=excluded.summary_json, model=excluded.model,
+            created_at=datetime('now')
+    """, (gong_id, summary_json, model))
 
 
 def set_snapshot_meta(conn: sqlite3.Connection, source: str, status: str,

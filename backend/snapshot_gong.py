@@ -62,8 +62,16 @@ def paginate_calls(from_dt):
     return results
 
 
-def fetch_transcripts(call_ids):
-    """POST /v2/calls/transcript in batches of 50. Returns {gong_id: text}."""
+def fetch_transcripts(call_ids, user_map=None):
+    """POST /v2/calls/transcript in batches of 50. Returns {gong_id: labeled_text}.
+
+    Each line is formatted as "[Speaker Name]: sentence" so AI summaries can
+    distinguish rep vs. prospect. Reps are identified via user_map (gong_id→slug);
+    all other speakers are labelled "Prospect".
+    """
+    from config import REPS as _REPS
+    user_map = user_map or {}
+
     results = {}
     for i in range(0, len(call_ids), 50):
         batch = call_ids[i:i+50]
@@ -71,13 +79,16 @@ def fetch_transcripts(call_ids):
             data = gong_post("/v2/calls/transcript", {"filter": {"callIds": batch}})
             for ct in data.get("callTranscripts", []):
                 cid = ct["callId"]
-                sentences = []
+                lines = []
                 for speaker_block in ct.get("transcript", []):
+                    speaker_id = str(speaker_block.get("speakerId") or "")
+                    slug = user_map.get(speaker_id, "")
+                    label = _REPS[slug]["name"] if slug and slug in _REPS else "Prospect"
                     for s in speaker_block.get("sentences", []):
                         text = s.get("text", "").strip()
                         if text:
-                            sentences.append(text)
-                results[cid] = " ".join(sentences)
+                            lines.append(f"[{label}]: {text}")
+                results[cid] = "\n".join(lines)
         except Exception as e:
             log.warning("Transcript batch failed: %s", e)
     return results
@@ -211,10 +222,10 @@ def run():
         calls = paginate_calls(since)
         log.info("Fetched %d calls from Gong", len(calls))
 
-        # Fetch transcripts for all calls in batches
+        # Fetch transcripts for all calls in batches (with speaker attribution)
         call_ids = [str(c["id"]) for c in calls]
         log.info("Fetching transcripts for %d calls...", len(call_ids))
-        transcripts = fetch_transcripts(call_ids)
+        transcripts = fetch_transcripts(call_ids, user_map=user_map)
         log.info("Got %d transcripts", len(transcripts))
 
         with db.tx() as conn:

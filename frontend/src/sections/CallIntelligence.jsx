@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { api } from "../lib/api";
+import CallSummary from "../components/CallSummary";
 
 const REP_LABELS = { arlen: "Arlen M.", derek: "Derek G.", grant: "Grant A.", luke: "Luke A." };
 const REPS = [
@@ -49,16 +50,19 @@ function TranscriptPanel({ gongId, onClose }) {
           <button onClick={onClose} className="text-gray-500 hover:text-white text-lg shrink-0 mt-0.5">✕</button>
         </div>
 
-        {/* Transcript */}
+        {/* Body */}
         <div className="px-6 py-4 flex-1">
           {loading ? (
             <div className="text-gray-600 text-sm">Loading transcript…</div>
           ) : !data?.transcript ? (
             <div className="text-gray-600 text-sm">No transcript available for this call.</div>
           ) : (
-            <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
-              {data.transcript}
-            </p>
+            <>
+              <CallSummary gongId={gongId} hasTranscript={!!data.transcript} />
+              <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                {data.transcript}
+              </p>
+            </>
           )}
         </div>
       </div>
