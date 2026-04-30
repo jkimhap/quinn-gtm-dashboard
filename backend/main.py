@@ -805,30 +805,31 @@ def call_transcript(gong_id: str):
     }
 
 
+MODEL = "claude-haiku-4-5-20251001"
+
 _SUMMARY_PROMPT = """\
-You are a sales call analyst for Quinn, a B2B AI voice agent platform that helps field-service \
-companies (HVAC, plumbing, pest control, roofing, etc.) never miss a customer call.
+You are a sales call analyst for Quinn, a B2B AI voice agent platform that helps \
+field-service companies (HVAC, plumbing, pest control, roofing, etc.) never miss a customer call.
 
-This may be any call in a sales cycle — an intro, a demo, a follow-up, a negotiation, or a \
-check-in — so analyse it on its own terms rather than assuming it is a qualification call.
-
-Analyze the transcript below and return ONLY a valid JSON object — no markdown fences, \
+{prior_context_block}
+Analyse the CURRENT CALL below and return ONLY a valid JSON object — no markdown fences, \
 no explanation, just the JSON.
 
 Required structure:
 {{
-  "tldr": "<2-3 sentence plain-English summary of what this specific call was about and what was accomplished>",
+  "tldr": "<2-3 sentences: what happened on THIS call and what it means for the deal, \
+written in light of the full relationship history above>",
   "key_moments": [
-    "<important thing said, decided, or revealed — be specific, quote directly if useful>",
+    "<most important thing said, decided, or revealed on this call — quote directly if useful>",
     "..."
   ],
   "commitments_and_blockers": {{
-    "rep_committed": ["<things the rep promised to do>"],
-    "prospect_committed": ["<things the prospect agreed to do>"],
-    "blockers": ["<objections, concerns, or obstacles that came up — null list if none>"]
+    "rep_committed": ["<thing the rep promised to do>"],
+    "prospect_committed": ["<thing the prospect agreed to do>"],
+    "blockers": ["<objection, concern, or obstacle — empty array if none>"]
   }},
   "action_items": [
-    "<specific next step with owner, e.g. 'Rep: send pricing deck by Friday'>",
+    "<specific next step, e.g. 'Rep: send pricing deck by Friday'>",
     "..."
   ],
   "coaching": [
@@ -838,88 +839,146 @@ Required structure:
 }}
 
 Rules:
-- key_moments: 3-5 bullets, pick the highest-signal moments (not generic filler)
-- action_items: concrete and specific; include who owns each item when clear
-- coaching: 2-4 notes; be honest and direct, referencing actual moments in the transcript
+- tldr must reflect where the deal stands OVERALL, not just this call in isolation
+- key_moments: 3-5 bullets, highest signal only
+- coaching: 2-4 honest, direct notes referencing actual transcript moments
 - Use empty arrays [] for sections with nothing to report; never omit a key
-- Do not force BANT framing — only mention budget/timeline/authority if it actually came up
 
-Call context: {context}
+Current call — {call_context}
 
 Transcript:
 {transcript}
 """
 
-MODEL = "claude-haiku-4-5-20251001"
+
+def _build_prior_context(company: str, before_date: str) -> str:
+    """
+    Return a prose block summarising all prior calls with this company
+    that happened before `before_date`, most recent first.
+    Uses cached summaries where available; falls back to call title + date.
+    """
+    if not company:
+        return ""
+
+    prior_calls = db.q("""
+        SELECT g.gong_id, g.title, g.started_at, g.rep_slug,
+               s.summary_json
+        FROM gong_calls g
+        LEFT JOIN gong_summaries s ON s.gong_id = g.gong_id
+        WHERE (g.matched_company = ? OR g.company_name LIKE ?)
+          AND g.started_at < ?
+        ORDER BY g.started_at ASC
+    """, (company, f"%{company.split()[0]}%", before_date))
+
+    if not prior_calls:
+        return ""
+
+    lines = [
+        f"=== RELATIONSHIP HISTORY WITH {company.upper()} ===",
+        f"({len(prior_calls)} prior call(s) on record — oldest to newest)\n",
+    ]
+    for i, c in enumerate(prior_calls, 1):
+        date_str = (c.get("started_at") or "")[:10]
+        rep = REPS.get(c.get("rep_slug") or "", {}).get("name") or c.get("rep_slug") or "Unknown"
+        title = c.get("title") or "Untitled"
+        tldr = ""
+        if c.get("summary_json"):
+            try:
+                tldr = json.loads(c["summary_json"]).get("tldr", "")
+            except Exception:
+                pass
+        entry = f"Call {i} — {date_str} ({rep}): {title}"
+        if tldr:
+            entry += f"\n  Summary: {tldr}"
+        lines.append(entry)
+
+    lines.append("\n=== END OF HISTORY — CURRENT CALL FOLLOWS ===\n")
+    return "\n".join(lines) + "\n"
 
 
 @app.get("/api/calls/{gong_id}/summary")
 def call_summary(gong_id: str):
-    # ── Serve from cache ────────────────────────────────────────────────────────
-    cached = db.q1("SELECT summary_json FROM gong_summaries WHERE gong_id = ?", (gong_id,))
-    if cached and cached.get("summary_json"):
-        return json.loads(cached["summary_json"])
-
-    # ── Fetch transcript ────────────────────────────────────────────────────────
-    transcript_row = db.q1(
-        "SELECT transcript_text FROM gong_transcripts WHERE gong_id = ?", (gong_id,)
-    )
-    if not transcript_row or not (transcript_row.get("transcript_text") or "").strip():
-        return {"error": "No transcript available for this call."}
-
-    transcript_text = transcript_row["transcript_text"].strip()
-    if len(transcript_text) < 100:
-        return {"error": "Transcript is too short to analyse."}
-
-    # ── Call metadata ───────────────────────────────────────────────────────────
-    call = db.q1(
-        "SELECT title, rep_slug, matched_company FROM gong_calls WHERE gong_id = ?",
-        (gong_id,),
-    )
-    rep_name = REPS.get(call["rep_slug"] or "", {}).get("name", call["rep_slug"] or "Unknown") if call else "Unknown"
-    context = (
-        f"Company: {(call or {}).get('matched_company') or 'Unknown'} | "
-        f"Rep: {rep_name} | "
-        f"Call title: {(call or {}).get('title') or ''}"
-    )
-
-    # ── Generate with Claude ────────────────────────────────────────────────────
-    api_key = os.getenv("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        return {"error": "ANTHROPIC_API_KEY is not configured on this server."}
-
     try:
-        import anthropic  # lazy import — only needed for this endpoint
-        client = anthropic.Anthropic(api_key=api_key)
+        # Ensure gong_summaries table exists (defensive, in case of schema drift)
+        with db.tx() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS gong_summaries (
+                gong_id TEXT PRIMARY KEY, summary_json TEXT,
+                model TEXT, created_at TEXT DEFAULT (datetime('now')))""")
+
+        # ── Serve from cache ────────────────────────────────────────────────────
+        cached = db.q1("SELECT summary_json FROM gong_summaries WHERE gong_id = ?", (gong_id,))
+        if cached and cached.get("summary_json"):
+            return json.loads(cached["summary_json"])
+
+        # ── Fetch transcript ────────────────────────────────────────────────────
+        transcript_row = db.q1(
+            "SELECT transcript_text FROM gong_transcripts WHERE gong_id = ?", (gong_id,)
+        )
+        if not transcript_row or not (transcript_row.get("transcript_text") or "").strip():
+            return {"error": "No transcript available for this call."}
+
+        transcript_text = transcript_row["transcript_text"].strip()
+        if len(transcript_text) < 100:
+            return {"error": "Transcript is too short to analyse."}
+
+        # ── Call metadata ───────────────────────────────────────────────────────
+        call = db.q1(
+            "SELECT title, rep_slug, matched_company, started_at FROM gong_calls WHERE gong_id = ?",
+            (gong_id,),
+        )
+        if not call:
+            return {"error": "Call not found."}
+
+        company = (call.get("matched_company") or "").strip()
+        rep_name = REPS.get(call.get("rep_slug") or "", {}).get("name") or call.get("rep_slug") or "Unknown"
+        started_at = call.get("started_at") or ""
+        call_context = (
+            f"Company: {company or 'Unknown'} | Rep: {rep_name} | "
+            f"Date: {started_at[:10]} | Title: {call.get('title') or ''}"
+        )
+
+        # ── Build prior-call context ────────────────────────────────────────────
+        prior_block = _build_prior_context(company, started_at) if company else ""
+
+        # ── Check API key ───────────────────────────────────────────────────────
+        api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            return {"error": "ANTHROPIC_API_KEY is not configured on this server."}
+
+        # ── Generate with Claude ────────────────────────────────────────────────
+        import anthropic as _anthropic
+        client = _anthropic.Anthropic(api_key=api_key)
         prompt = _SUMMARY_PROMPT.format(
-            context=context,
-            transcript=transcript_text[:14000],  # ~10k tokens, well within haiku context
+            prior_context_block=prior_block,
+            call_context=call_context,
+            transcript=transcript_text[:12000],
         )
         message = client.messages.create(
             model=MODEL,
-            max_tokens=1024,
+            max_tokens=1200,
             messages=[{"role": "user", "content": prompt}],
         )
         raw = message.content[0].text.strip()
-        # Strip markdown code fences Claude sometimes adds
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw)
         summary = json.loads(raw)
+
+        # ── Cache and return ────────────────────────────────────────────────────
+        with db.tx() as conn:
+            db.upsert_gong_summary(conn, gong_id, json.dumps(summary), MODEL)
+
+        return summary
+
     except json.JSONDecodeError as e:
         return {"error": f"AI returned invalid JSON: {e}"}
     except Exception as e:
-        return {"error": f"AI analysis failed: {e}"}
-
-    # ── Cache and return ────────────────────────────────────────────────────────
-    with db.tx() as conn:
-        db.upsert_gong_summary(conn, gong_id, json.dumps(summary), MODEL)
-
-    return summary
+        import traceback
+        return {"error": f"Summary failed: {type(e).__name__}: {e}", "detail": traceback.format_exc()}
 
 
 @app.get("/api/calls/{gong_id}/summary/refresh")
 def call_summary_refresh(gong_id: str):
-    """Force-regenerate the cached summary (e.g. after transcript update)."""
+    """Force-regenerate the cached summary."""
     with db.tx() as conn:
         conn.execute("DELETE FROM gong_summaries WHERE gong_id = ?", (gong_id,))
     return call_summary(gong_id)
@@ -978,4 +1037,6 @@ if os.path.isdir(_dist):
 
     @app.get("/{full_path:path}")
     def serve_spa(full_path: str):
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not found")
         return FileResponse(os.path.join(_dist, "index.html"))

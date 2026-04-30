@@ -246,21 +246,23 @@ def build_email_to_slug():
 
 
 def build_gong_user_map(email_to_slug):
-    """Returns ({gong_user_id: slug_or_firstname}, {gong_user_id: slug_only}).
+    """Returns ({gong_user_id: slug_or_fullname}, {gong_user_id: slug_only}).
 
     For users in REPS, value is the slug (e.g. "arlen").
-    For all other internal Gong users, value is their first name (e.g. "Ben")
+    For all other internal Gong users, value is their full name (e.g. "Ben Anderson")
     so the rep column is never blank for internal calls.
     """
     data = gong_get("/v2/users")
-    id_to_slug = {}      # slug for REPS, first name for others
+    id_to_slug = {}      # slug for REPS, full name for others
     id_to_slug_only = {} # slug for REPS only (used for speaker attribution)
     for u in data.get("users", []):
         email = (u.get("emailAddress") or "").lower()
         slug = email_to_slug.get(email, "")
         first_name = (u.get("firstName") or "").strip()
+        last_name = (u.get("lastName") or "").strip()
+        full_name = f"{first_name} {last_name}".strip()
         uid = u["id"]
-        id_to_slug[uid] = slug if slug else first_name
+        id_to_slug[uid] = slug if slug else full_name
         id_to_slug_only[uid] = slug
     log.info("Mapped %d Gong users", len(id_to_slug))
     return id_to_slug, id_to_slug_only
