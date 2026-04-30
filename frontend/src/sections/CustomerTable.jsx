@@ -73,7 +73,7 @@ function CompanyCallsModal({ company, onClose }) {
                 onClick={() => call.has_transcript && openTranscript(call.gong_id)}>
                 <div className="text-sm text-white">{call.title}</div>
                 <div className="text-xs text-gray-500 mt-0.5">
-                  {new Date(call.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  {new Date((call.started_at || "").replace(" ", "T")).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   {" · "}{fmtDuration(call.duration_secs)}
                   {" · "}{REP_LABELS[call.rep_slug] || call.rep_slug || "—"}
                   {call.has_transcript && <span className="ml-2 text-quinn-400">transcript available</span>}

@@ -896,6 +896,12 @@ def _build_prior_context(company: str, before_date: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+@app.get("/api/debug/summary-ping")
+def debug_summary_ping():
+    """Sanity check: confirms routes after line 899 are registered."""
+    return {"ok": True, "routes": [r.path for r in app.routes if hasattr(r, "path") and "summary" in r.path]}
+
+
 @app.get("/api/calls/{gong_id}/summary")
 def call_summary(gong_id: str):
     try:

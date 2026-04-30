@@ -18,7 +18,8 @@ function fmtDuration(secs) {
 
 function fmtDate(str) {
   if (!str) return "—";
-  return new Date(str).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  // SQLite stores datetimes as "YYYY-MM-DD HH:MM:SS" (space); JS needs ISO "T" separator
+  return new Date(str.replace(" ", "T")).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function TranscriptPanel({ gongId, onClose }) {
