@@ -850,7 +850,7 @@ Transcript:
 {transcript}
 """
 
-MODEL = "claude-3-5-haiku-20241022"
+MODEL = "claude-haiku-4-5-20251001"
 
 
 @app.get("/api/calls/{gong_id}/summary")
