@@ -116,7 +116,6 @@ const COLS = [
   { key: "mrr",           label: "MRR",             sortable: true, note: "ARR ÷ 12" },
   { key: "contract_start",label: "Start",           sortable: true },
   { key: "contract_end",  label: "Renewal",         sortable: true },
-  { key: "source",        label: "Source",          sortable: true },
   { key: "owner",         label: "Owner",           sortable: true },
   { key: "status",        label: "Status",          sortable: true },
 ];
@@ -296,9 +295,6 @@ export default function CustomerTable() {
                 </td>
                 <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">
                   {fmtDate(row.contract_end)}
-                </td>
-                <td className="px-3 py-2.5 text-gray-400 capitalize">
-                  {row.source || "—"}
                 </td>
                 <td className="px-3 py-2.5 text-gray-300">
                   {row.owner || "—"}

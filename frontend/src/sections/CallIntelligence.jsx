@@ -89,7 +89,7 @@ function CallRow({ call, onSelect }) {
         {fmtDuration(call.duration_secs)}
       </td>
       <td className="px-3 py-2.5 text-gray-400 text-sm">
-        {call.matched_company || <span className="text-gray-700">—</span>}
+        {call.matched_company || call.company_name || <span className="text-gray-700">—</span>}
       </td>
       <td className="px-3 py-2.5 text-sm">
         {call.has_transcript

@@ -246,15 +246,24 @@ def build_email_to_slug():
 
 
 def build_gong_user_map(email_to_slug):
-    """Returns {gong_user_id: slug}."""
+    """Returns ({gong_user_id: slug_or_firstname}, {gong_user_id: slug_only}).
+
+    For users in REPS, value is the slug (e.g. "arlen").
+    For all other internal Gong users, value is their first name (e.g. "Ben")
+    so the rep column is never blank for internal calls.
+    """
     data = gong_get("/v2/users")
-    id_to_slug = {}
+    id_to_slug = {}      # slug for REPS, first name for others
+    id_to_slug_only = {} # slug for REPS only (used for speaker attribution)
     for u in data.get("users", []):
         email = (u.get("emailAddress") or "").lower()
         slug = email_to_slug.get(email, "")
-        id_to_slug[u["id"]] = slug
+        first_name = (u.get("firstName") or "").strip()
+        uid = u["id"]
+        id_to_slug[uid] = slug if slug else first_name
+        id_to_slug_only[uid] = slug
     log.info("Mapped %d Gong users", len(id_to_slug))
-    return id_to_slug
+    return id_to_slug, id_to_slug_only
 
 
 def run():
@@ -269,7 +278,9 @@ def run():
 
     try:
         email_to_slug = build_email_to_slug()
-        user_map = build_gong_user_map(email_to_slug)
+        # user_map: gong_id → slug (REPS) or first name (everyone else)
+        # slug_map: gong_id → slug (REPS only, for speaker attribution logic)
+        user_map, slug_only_map = build_gong_user_map(email_to_slug)
         company_map = build_company_deal_map()
 
         since = (datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -279,7 +290,7 @@ def run():
         # Build speakerId→label map via /v2/calls/extensive (parties)
         call_ids = [str(c["id"]) for c in calls]
         log.info("Fetching speaker parties for %d calls...", len(call_ids))
-        speaker_map = fetch_speaker_map(call_ids, user_map)
+        speaker_map = fetch_speaker_map(call_ids, slug_only_map)
         log.info("Speaker map built for %d calls", len(speaker_map))
 
         # Fetch transcripts with correct speaker labels
@@ -292,7 +303,7 @@ def run():
                 cid = str(c["id"])
                 title = c.get("title") or ""
 
-                # Rep resolution via primaryUserId
+                # Rep resolution via primaryUserId: slug for REPS, first name for others
                 primary_uid = str(c.get("primaryUserId") or "")
                 rep_slug = user_map.get(primary_uid, "")
 

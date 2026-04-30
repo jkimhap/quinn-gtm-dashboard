@@ -199,10 +199,11 @@ def days_between(start: "Optional[str]", end: "Optional[str]") -> "Optional[int]
 
 # ── Owner mapping ─────────────────────────────────────────────────────────────
 
-def build_owner_slug_map() -> dict:
-    """Returns {hubspot_owner_id: slug} from REPS config + live HubSpot owners."""
+def build_owner_slug_map() -> tuple:
+    """Returns ({hubspot_owner_id: slug}, {hubspot_owner_id: full_name})."""
     email_to_slug = {r["hubspot_owner_email"].lower(): slug for slug, r in REPS.items()}
     id_to_slug = {}
+    id_to_name = {}
 
     try:
         owners = hs_get("/crm/v3/owners")
@@ -210,19 +211,23 @@ def build_owner_slug_map() -> dict:
             for o in owners.get("results", []):
                 email = o.get("email", "").lower()
                 slug = email_to_slug.get(email, "")
+                first = o.get("firstName", "")
+                last = o.get("lastName", "")
+                full_name = f"{first} {last}".strip()
+                oid = str(o["id"])
                 db.upsert_owner(conn, {
-                    "hubspot_owner_id": str(o["id"]),
+                    "hubspot_owner_id": oid,
                     "email": email,
-                    "first_name": o.get("firstName", ""),
-                    "last_name": o.get("lastName", ""),
+                    "first_name": first,
+                    "last_name": last,
                     "slug": slug,
                 })
-                id_to_slug[str(o["id"])] = slug
+                id_to_slug[oid] = slug
+                id_to_name[oid] = full_name
     except Exception as e:
         log.warning("Could not fetch owners (need crm.objects.owners.read scope): %s", e)
-        log.warning("Rep attribution will be empty — add the scope and re-run.")
 
-    return id_to_slug
+    return id_to_slug, id_to_name
 
 
 # ── Companies ─────────────────────────────────────────────────────────────────
@@ -285,7 +290,7 @@ def _derive_arr_from_tcv(tcv, term_months):
     return tcv  # assume 1-year if no term info
 
 
-def snapshot_deals(company_map: dict, owner_map: dict, field_map: dict,
+def snapshot_deals(company_map: dict, owner_map: dict, owner_name_map: dict, field_map: dict,
                    stage_label_map: dict) -> int:
     props = [
         "dealname", "amount", "closedate", "createdate",
@@ -331,7 +336,13 @@ def snapshot_deals(company_map: dict, owner_map: dict, field_map: dict,
 
             owner_id = str(p.get("hubspot_owner_id") or "")
             owner_slug = owner_map.get(owner_id, "")
-            owner_name = REPS.get(owner_slug, {}).get("name", owner_slug)
+            # Prefer REPS name → full name from HubSpot owners → slug fallback
+            owner_name = (
+                REPS.get(owner_slug, {}).get("name")
+                or owner_name_map.get(owner_id)
+                or owner_slug
+                or ""
+            )
 
             # Resolve stage ID → label → bucket
             stage_raw = p.get("dealstage") or ""
@@ -362,8 +373,27 @@ def snapshot_deals(company_map: dict, owner_map: dict, field_map: dict,
             close_date = parse_date(p.get("closedate"))
             create_date = parse_date(p.get("createdate"))
             closed_won_date = parse_date(p.get("hs_closed_won_date")) or (close_date if is_won else None)
-            contract_start = parse_date(p.get(field_map.get("contract_start") or ""))
+
+            # Contract start: explicit field → fall back to close_date for won deals
+            contract_start = (
+                parse_date(p.get(field_map.get("contract_start") or ""))
+                or (close_date if is_won else None)
+            )
+            # Contract end: explicit field → compute from start + term months
             contract_end = parse_date(p.get(field_map.get("contract_end") or ""))
+            if not contract_end and contract_start and is_won:
+                term_months = safe_int(p.get(field_map.get("contract_term_months") or "contract_term_months"))
+                if term_months and term_months > 0:
+                    try:
+                        import calendar as _cal
+                        from datetime import date as _date
+                        cs = _date.fromisoformat(contract_start)
+                        m = cs.month - 1 + term_months
+                        yr, mo = cs.year + m // 12, m % 12 + 1
+                        dy = min(cs.day, _cal.monthrange(yr, mo)[1])
+                        contract_end = _date(yr, mo, dy).isoformat()
+                    except Exception:
+                        pass
 
             source_raw = (p.get(field_map.get("deal_source") or "") or
                           p.get("hs_analytics_source") or "")
@@ -463,9 +493,9 @@ def run():
     try:
         field_map = build_field_map()
         stage_label_map = get_stage_label_map()
-        owner_map = build_owner_slug_map()
+        owner_map, owner_name_map = build_owner_slug_map()
         company_map = snapshot_companies(field_map)
-        rows_written = snapshot_deals(company_map, owner_map, field_map, stage_label_map)
+        rows_written = snapshot_deals(company_map, owner_map, owner_name_map, field_map, stage_label_map)
 
         with db.tx() as conn:
             db.set_snapshot_meta(conn, "hubspot", "ok", rows_written)
