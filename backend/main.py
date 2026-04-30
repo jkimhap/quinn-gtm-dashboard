@@ -1029,14 +1029,21 @@ def company_calls(company_name: str):
 # ── Serve built frontend (production) ──────────────────────────────────────────
 import os
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi import Request
 
 _dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.isdir(_dist):
     app.mount("/assets", StaticFiles(directory=os.path.join(_dist, "assets")), name="assets")
 
-    @app.get("/{full_path:path}")
-    def serve_spa(full_path: str):
-        if full_path.startswith("api/"):
-            raise HTTPException(status_code=404, detail="Not found")
-        return FileResponse(os.path.join(_dist, "index.html"))
+    # Use a 404 exception handler instead of a catch-all route.
+    # A /{full_path:path} catch-all intercepts API routes in Starlette before
+    # specific routes can match; the exception handler only fires for true 404s.
+    @app.exception_handler(404)
+    async def spa_fallback(request: Request, exc):
+        if request.url.path.startswith("/api/"):
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
+        index = os.path.join(_dist, "index.html")
+        if os.path.isfile(index):
+            return FileResponse(index)
+        return JSONResponse(status_code=404, content={"detail": "Not found"})
