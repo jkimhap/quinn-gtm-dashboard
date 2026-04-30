@@ -4,14 +4,22 @@ import { api } from "../lib/api";
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 function Skeleton() {
   return (
-    <div className="animate-pulse space-y-2 mb-5">
-      <div className="flex items-center justify-between">
-        <div className="h-3 w-20 bg-gray-800 rounded" />
+    <div className="mb-5">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">AI Summary</span>
       </div>
-      <div className="h-14 bg-gray-800 rounded-lg" />
-      <div className="h-20 bg-gray-800 rounded-lg" />
-      <div className="h-16 bg-gray-800 rounded-lg" />
-      <div className="h-16 bg-gray-800 rounded-lg" />
+      <div className="bg-gray-800/40 border border-gray-700/40 rounded-lg px-4 py-3 mb-3 flex items-center gap-3">
+        <svg className="animate-spin h-3.5 w-3.5 text-quinn-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        <span className="text-xs text-gray-400">Generating AI summary — this takes 5–10 seconds on first load…</span>
+      </div>
+      <div className="animate-pulse space-y-2">
+        <div className="h-14 bg-gray-800/60 rounded-lg" />
+        <div className="h-20 bg-gray-800/60 rounded-lg" />
+        <div className="h-16 bg-gray-800/60 rounded-lg" />
+      </div>
     </div>
   );
 }
