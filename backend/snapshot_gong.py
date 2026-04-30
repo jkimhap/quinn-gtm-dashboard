@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 GONG_BASE = "https://api.gong.io"
-LOOKBACK_DAYS = 180
+LOOKBACK_DAYS = 365
 
 
 def auth():
@@ -86,19 +86,36 @@ def fetch_transcripts(call_ids):
 def extract_company_from_title(title):
     """
     Parse prospect company from call title patterns like:
-      'Quinn <> Del-Air'       → 'Del-Air'
-      'Quinn <> Burns Pest Followup' → 'Burns Pest'
-      'Intro to Quinn'         → None
+      'Quinn <> Del-Air'              → 'Del-Air'
+      'Quinn <> Burns Pest Followup'  → 'Burns Pest'
+      'Del-Air <> Quinn'              → 'Del-Air'  (reversed)
+      'Spartan x Quinn'               → 'Spartan'  (x separator)
+      'Intro to Quinn'                → None
     """
     title = title or ""
-    # Pattern: Quinn <> COMPANY (optional suffix)
-    m = re.search(r'(?:Quinn|Luna Park)\s*(?:<>|–|-)\s*(.+?)(?:\s+(?:Followup|Follow[- ]?Up|Check[- ]?In|Demo|Pitch|Call|Meeting|Discussion|Overview|Next Steps|Renewal).*)?$', title, re.IGNORECASE)
+    NOISE = r'(?:followup|follow[\s-]?up|check[\s-]?in|demo|pitch|call|meeting|discussion|overview|next steps|renewal|touchbase|touch base|reconnect|sync|intro|training|kickoff|alignment)'
+
+    # Pattern 1: Quinn/Luna Park <> COMPANY [optional suffix]
+    m = re.search(
+        r'(?:Quinn|Luna Park)\s*(?:<>|x|–|-)\s*(.+?)(?:\s+' + NOISE + r'.*)?$',
+        title, re.IGNORECASE
+    )
     if m:
         company = m.group(1).strip()
-        # Remove trailing punctuation/noise
-        company = re.sub(r'\s+(followup|follow up|check.?in|demo|pitch|next steps|renewal|touchbase|touch base).*$', '', company, flags=re.IGNORECASE).strip()
+        company = re.sub(r'\s+' + NOISE + r'.*$', '', company, flags=re.IGNORECASE).strip()
+        if company and len(company) > 2 and not re.match(r'^(?:discussion|followup|follow.?up|intro|call|sync|update)$', company, re.IGNORECASE):
+            return company
+
+    # Pattern 2: COMPANY <> Quinn [optional suffix] (reversed)
+    m2 = re.search(
+        r'^(.+?)\s*(?:<>|x)\s*(?:Quinn|Luna Park)(?:\s+' + NOISE + r'.*)?$',
+        title, re.IGNORECASE
+    )
+    if m2:
+        company = m2.group(1).strip()
         if company and len(company) > 2:
             return company
+
     return None
 
 
@@ -117,19 +134,36 @@ def build_company_deal_map():
     return result
 
 
+def normalize(s):
+    """Normalize for fuzzy matching: lowercase, collapse hyphen/space."""
+    return re.sub(r'[-\s]+', ' ', s.lower()).strip()
+
+
 def match_company(extracted, company_map):
     """Fuzzy match extracted company name against known deal companies."""
     if not extracted:
         return None, None
     key = extracted.lower().strip()
+    key_norm = normalize(extracted)
 
-    # Exact match
+    # Exact match (raw)
     if key in company_map:
         return company_map[key]
 
-    # Substring match: extracted is contained in a known company name
+    # Exact match (normalized — e.g. "Del Air" matches "Del-Air")
+    for known_key, val in company_map.items():
+        if normalize(known_key) == key_norm:
+            return val
+
+    # Substring match (raw)
     for known_key, val in company_map.items():
         if key in known_key or known_key in key:
+            return val
+
+    # Substring match (normalized)
+    for known_key, val in company_map.items():
+        nk = normalize(known_key)
+        if key_norm in nk or nk in key_norm:
             return val
 
     return None, None

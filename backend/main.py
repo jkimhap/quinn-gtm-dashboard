@@ -804,15 +804,43 @@ def call_transcript(gong_id: str):
 
 @app.get("/api/companies/{company_name}/calls")
 def company_calls(company_name: str):
-    rows = db.q("""
+    # company_name may be the full HubSpot name (e.g. "Del-Air Heating, Air Conditioning...")
+    # but gong_calls.company_name only has the short extracted name (e.g. "Del-Air").
+    # Also search by deal_id to catch calls matched via deal linkage.
+    # And generate short-name tokens for fuzzy matching.
+
+    # Short name = first meaningful token(s) before a comma or dash-word boundary
+    import re as _re
+    short = _re.split(r'[,\(]', company_name)[0].strip()  # "Del-Air Heating..." → "Del-Air"
+    short_words = short.split()
+    short2 = " ".join(short_words[:2]) if len(short_words) >= 2 else short  # first two words
+
+    # Get deal IDs associated with this company
+    deal_rows = db.q(
+        "SELECT hubspot_id FROM deals WHERE company_name = ? OR company_name LIKE ?",
+        (company_name, f"%{short2}%")
+    )
+    deal_ids = [r["hubspot_id"] for r in deal_rows]
+
+    params: list = [f"%{company_name}%", f"%{company_name}%", f"%{short}%", f"%{short}%"]
+    deal_clause = ""
+    if deal_ids:
+        placeholders = ",".join("?" * len(deal_ids))
+        deal_clause = f"OR g.deal_id IN ({placeholders})"
+        params.extend(deal_ids)
+
+    rows = db.q(f"""
         SELECT g.gong_id, g.title, g.started_at, g.duration_secs, g.rep_slug,
+               g.matched_company,
                CASE WHEN t.transcript_text IS NOT NULL AND length(t.transcript_text) > 10
                     THEN 1 ELSE 0 END as has_transcript
         FROM gong_calls g
         LEFT JOIN gong_transcripts t ON t.gong_id = g.gong_id
         WHERE g.matched_company LIKE ? OR g.company_name LIKE ?
+           OR g.matched_company LIKE ? OR g.company_name LIKE ?
+           {deal_clause}
         ORDER BY g.started_at DESC
-    """, (f"%{company_name}%", f"%{company_name}%"))
+    """, params)
     return {"data": rows, "count": len(rows)}
 
 
