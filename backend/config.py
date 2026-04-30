@@ -21,21 +21,26 @@ REPS = {
     "arlen": {
         "name": "Arlen Marmel",
         "hubspot_owner_email": "arlen@meetquinn.ai",
+        # Gong still uses the legacy lunapark.com domain for this account
+        "gong_email": "arlen@lunapark.com",
         "role": "ae",
     },
     "derek": {
         "name": "Derek Goldberg",
-        "hubspot_owner_email": "derek@lunapark.com",  # HubSpot account predates domain migration
+        # lunapark.com = meetquinn.ai (legacy domain before company rename)
+        "hubspot_owner_email": "derek@lunapark.com",
         "role": "ae",
     },
     "grant": {
         "name": "Grant Amerling",
-        "hubspot_owner_email": "grant@lunapark.com",  # same
+        "hubspot_owner_email": "grant@lunapark.com",
         "role": "ae",
     },
     "luke": {
         "name": "Luke Adrianzen",
         "hubspot_owner_email": "luke@meetquinn.ai",
+        # Gong still uses the legacy lunapark.com domain for this account
+        "gong_email": "luke@lunapark.com",
         "role": "sdr",
         "hide_from_rep_tabs": True,  # SDR — shown in leading indicators only
     },

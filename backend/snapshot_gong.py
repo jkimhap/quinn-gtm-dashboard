@@ -136,7 +136,14 @@ def match_company(extracted, company_map):
 
 
 def build_email_to_slug():
-    return {r["hubspot_owner_email"].lower(): slug for slug, r in REPS.items()}
+    """Build email→slug map. Includes both hubspot_owner_email and gong_email
+    (lunapark.com and meetquinn.ai are the same company — legacy domain migration)."""
+    mapping = {}
+    for slug, r in REPS.items():
+        mapping[r["hubspot_owner_email"].lower()] = slug
+        if r.get("gong_email"):
+            mapping[r["gong_email"].lower()] = slug
+    return mapping
 
 
 def build_gong_user_map(email_to_slug):
