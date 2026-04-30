@@ -2,16 +2,15 @@
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
-# If npm is available (Replit), always rebuild the frontend so source changes
-# are picked up on every republish. On Render, npm is not in PATH during the
-# start phase (it runs in buildCommand instead), so this block is skipped.
-if command -v npm &> /dev/null; then
+# Render sets RENDER=true automatically and handles the frontend build in
+# its buildCommand, so skip npm here. On Replit (no RENDER var), build it.
+if [ -z "$RENDER" ] && command -v npm &> /dev/null; then
   echo "=== Installing Python packages ==="
   pip install -r "$ROOT/backend/requirements.txt" -q
 
   echo "=== Building frontend ==="
   cd "$ROOT/frontend"
-  npm install --silent
+  npm install
   npm run build
   cd "$ROOT"
 fi
