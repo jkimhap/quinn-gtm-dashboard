@@ -1,9 +1,21 @@
 #!/bin/bash
 set -e
-cd "$(dirname "$0")/backend"
-echo "Running HubSpot snapshot..."
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+echo "=== Installing Python packages ==="
+pip install -r "$ROOT/backend/requirements.txt" -q
+
+echo "=== Building frontend ==="
+cd "$ROOT/frontend"
+npm install --silent
+npm run build
+
+echo "=== Running HubSpot snapshot ==="
+cd "$ROOT/backend"
 python snapshot_hubspot.py
-echo "Running Gong snapshot..."
+
+echo "=== Running Gong snapshot ==="
 python snapshot_gong.py
-echo "Starting server..."
-exec uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}"
+
+echo "=== Starting server ==="
+exec uvicorn main:app --host 0.0.0.0 --port "${PORT:-8080}"
