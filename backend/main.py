@@ -809,30 +809,40 @@ _SUMMARY_PROMPT = """\
 You are a sales call analyst for Quinn, a B2B AI voice agent platform that helps field-service \
 companies (HVAC, plumbing, pest control, roofing, etc.) never miss a customer call.
 
-Analyze the sales call transcript below and return ONLY a valid JSON object — no markdown fences, \
+This may be any call in a sales cycle — an intro, a demo, a follow-up, a negotiation, or a \
+check-in — so analyse it on its own terms rather than assuming it is a qualification call.
+
+Analyze the transcript below and return ONLY a valid JSON object — no markdown fences, \
 no explanation, just the JSON.
 
 Required structure:
 {{
-  "bant": {{
-    "budget": "<1-2 sentences on budget signals, pricing discussed, affordability concerns, or null>",
-    "authority": "<who is the decision-maker and whether they have budget authority, or null>",
-    "need": "<the specific business problem / pain they want to solve>",
-    "timeline": "<when they want to buy or go live, any urgency signals, or null>"
+  "tldr": "<2-3 sentence plain-English summary of what this specific call was about and what was accomplished>",
+  "key_moments": [
+    "<important thing said, decided, or revealed — be specific, quote directly if useful>",
+    "..."
+  ],
+  "commitments_and_blockers": {{
+    "rep_committed": ["<things the rep promised to do>"],
+    "prospect_committed": ["<things the prospect agreed to do>"],
+    "blockers": ["<objections, concerns, or obstacles that came up — null list if none>"]
   }},
-  "verdict": "<exactly one of: qualify | disqualify | nurture>",
-  "verdict_reason": "<1-2 sentence explanation>",
-  "action_items": ["<specific next step>", "..."],
-  "coaching": ["<specific improvement the rep could make, with an example from the call>", "..."]
+  "action_items": [
+    "<specific next step with owner, e.g. 'Rep: send pricing deck by Friday'>",
+    "..."
+  ],
+  "coaching": [
+    "<specific, actionable thing the rep could have done better, with an example from the call>",
+    "..."
+  ]
 }}
 
-Verdict guide:
-- qualify   → clear need + buying intent + right ICP (field-service company)
-- disqualify → wrong industry fit, no real need, or no budget
-- nurture   → interested but timing or decision authority is unclear
-
-Use JSON null (not the string "null") for BANT fields that weren't discussed.
-Limit coaching to 2-4 specific, actionable notes.
+Rules:
+- key_moments: 3-5 bullets, pick the highest-signal moments (not generic filler)
+- action_items: concrete and specific; include who owns each item when clear
+- coaching: 2-4 notes; be honest and direct, referencing actual moments in the transcript
+- Use empty arrays [] for sections with nothing to report; never omit a key
+- Do not force BANT framing — only mention budget/timeline/authority if it actually came up
 
 Call context: {context}
 
