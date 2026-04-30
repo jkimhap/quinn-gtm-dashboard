@@ -2,10 +2,10 @@
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
-# Build frontend only when dist doesn't exist (Replit).
-# On Render, the buildCommand already runs npm install + npm run build,
-# so dist/ exists by the time this script runs.
-if [ ! -d "$ROOT/frontend/dist" ]; then
+# If npm is available (Replit), always rebuild the frontend so source changes
+# are picked up on every republish. On Render, npm is not in PATH during the
+# start phase (it runs in buildCommand instead), so this block is skipped.
+if command -v npm &> /dev/null; then
   echo "=== Installing Python packages ==="
   pip install -r "$ROOT/backend/requirements.txt" -q
 
