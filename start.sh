@@ -2,13 +2,19 @@
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
-echo "=== Installing Python packages ==="
-pip install -r "$ROOT/backend/requirements.txt" -q
+# Build frontend only when dist doesn't exist (Replit).
+# On Render, the buildCommand already runs npm install + npm run build,
+# so dist/ exists by the time this script runs.
+if [ ! -d "$ROOT/frontend/dist" ]; then
+  echo "=== Installing Python packages ==="
+  pip install -r "$ROOT/backend/requirements.txt" -q
 
-echo "=== Building frontend ==="
-cd "$ROOT/frontend"
-npm install --silent
-npm run build
+  echo "=== Building frontend ==="
+  cd "$ROOT/frontend"
+  npm install --silent
+  npm run build
+  cd "$ROOT"
+fi
 
 echo "=== Running HubSpot snapshot ==="
 cd "$ROOT/backend"
