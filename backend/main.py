@@ -26,6 +26,8 @@ from config import REPS, QUARTERLY_ARR_TARGET, STAGE_BUCKET_MAP, AT_RISK_RENEWAL
 
 db.init_db()
 
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+
 # ── Seed Quinn data if table is empty (no API token required) ──────────────────
 
 def _seed_quinn_if_empty():
@@ -67,8 +69,6 @@ _seed_quinn_if_empty()
 ET = ZoneInfo("America/New_York")
 _refresh_lock = threading.Lock()
 _last_refresh: dict = {"at": None, "status": "pending"}
-
-_backend_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 def _run_snapshots():
