@@ -220,7 +220,7 @@ export default function CustomerTable() {
         <select value={filterTier} onChange={e => setFilterTier(e.target.value)}
           className="bg-gray-800 border border-gray-700 text-sm text-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-quinn-500">
           <option value="">All Tiers</option>
-          {["1A","1B","2A","2B","3"].map(t => <option key={t} value={t}>{t}</option>)}
+          {["T1","T2","T3","T4"].map(t => <option key={t} value={t}>{t}</option>)}
         </select>
         <select value={filterOwner} onChange={e => setFilterOwner(e.target.value)}
           className="bg-gray-800 border border-gray-700 text-sm text-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-quinn-500">

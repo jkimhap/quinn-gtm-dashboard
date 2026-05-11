@@ -33,7 +33,7 @@ export default function CustomerHealth() {
                 note: "gross retention", color: data.grr_pct >= 90 ? "text-emerald-400" : "text-amber-400" },
               { label: "NRR (TTM)", value: data.nrr_pct != null ? fmtPct(data.nrr_pct) : null,
                 note: "net revenue retention", color: data.nrr_pct >= 100 ? "text-emerald-400" : "text-amber-400" },
-              { label: "Churned ARR (TTM)", value: data.churned_arr_ttm ? fmt$(data.churned_arr_ttm, { compact: true }) : "—",
+              { label: "Churned ARR (TTM)", value: data.churned_arr_ttm != null ? fmt$(data.churned_arr_ttm, { compact: true }) : "—",
                 note: "last 12 months", color: "text-red-400" },
               { label: "At-Risk Accounts", value: String(data.at_risk_accounts?.length || 0),
                 note: "renewal <90 days", color: data.at_risk_accounts?.length > 0 ? "text-amber-400" : "text-gray-400" },

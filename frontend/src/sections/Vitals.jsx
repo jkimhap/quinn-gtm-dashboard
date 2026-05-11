@@ -92,7 +92,7 @@ export default function Vitals() {
     },
     {
       label: "Rolling 3-Mo ACV",
-      value: loading ? "…" : data?.rolling_3mo_acv ? fmt$(data.rolling_3mo_acv, { compact: true }) : "—",
+      value: loading ? "…" : data?.rolling_3mo_acv != null ? fmt$(data.rolling_3mo_acv, { compact: true }) : "—",
       color: "#f59e0b",
       definition: "Average Total Contract Value of deals closed in the last 3 months",
     },

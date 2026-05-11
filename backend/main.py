@@ -26,6 +26,42 @@ from config import REPS, QUARTERLY_ARR_TARGET, STAGE_BUCKET_MAP, AT_RISK_RENEWAL
 
 db.init_db()
 
+# ── Seed Quinn data if table is empty (no API token required) ──────────────────
+
+def _seed_quinn_if_empty():
+    """
+    On first boot (or when QUINN_API_TOKEN is not set), seed quinn_orgs and
+    quinn_trends from the committed quinn_seed_data.json snapshot so the CS
+    dashboard always shows real data immediately.
+    """
+    existing = db.q1("SELECT COUNT(*) as n FROM quinn_orgs")
+    if existing and existing.get("n", 0) > 0:
+        return  # already populated
+
+    seed_path = os.path.join(_backend_dir, "quinn_seed_data.json")
+    if not os.path.isfile(seed_path):
+        return
+
+    try:
+        with open(seed_path) as f:
+            seed = json.load(f)
+
+        with db.tx() as conn:
+            for o in seed.get("orgs", []):
+                db.upsert_quinn_org(conn, o)
+            for t in seed.get("trends", []):
+                db.upsert_quinn_trend(conn, t)
+            db.set_snapshot_meta(
+                conn, "quinn", "ok",
+                len(seed.get("orgs", [])),
+            )
+        print(f"[seed] Loaded {len(seed.get('orgs', []))} orgs + {len(seed.get('trends', []))} trend months from quinn_seed_data.json")
+    except Exception as e:
+        print(f"[seed] Warning: could not seed Quinn data: {e}")
+
+
+_seed_quinn_if_empty()
+
 # ── Auto-refresh scheduler ─────────────────────────────────────────────────────
 
 ET = ZoneInfo("America/New_York")
