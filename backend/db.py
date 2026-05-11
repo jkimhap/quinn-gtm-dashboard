@@ -106,6 +106,24 @@ CREATE TABLE IF NOT EXISTS owners (
     updated_at          TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS hs_contacts (
+    hubspot_id              TEXT PRIMARY KEY,
+    email                   TEXT,
+    first_name              TEXT,
+    last_name               TEXT,
+    company_id              TEXT,
+    company_name            TEXT,
+    bant_score              REAL,
+    budget_score            REAL,
+    authority_score         REAL,
+    need_score              REAL,
+    timeline_score          REAL,
+    lead_qualification_status TEXT,
+    gong_call_status        TEXT,
+    bant_notes              TEXT,
+    updated_at              TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS snapshot_meta (
     source      TEXT PRIMARY KEY,  -- "hubspot" | "gong"
     ran_at      TEXT,
@@ -123,6 +141,8 @@ CREATE INDEX IF NOT EXISTS idx_deals_stage_bucket  ON deals(stage_bucket);
 CREATE INDEX IF NOT EXISTS idx_deals_is_won        ON deals(is_closed_won);
 CREATE INDEX IF NOT EXISTS idx_gong_rep            ON gong_calls(rep_slug);
 CREATE INDEX IF NOT EXISTS idx_gong_started        ON gong_calls(started_at);
+CREATE INDEX IF NOT EXISTS idx_contacts_company    ON hs_contacts(company_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_gong_status ON hs_contacts(gong_call_status);
 """
 
 
@@ -240,6 +260,29 @@ def upsert_gong_transcript(conn: sqlite3.Connection, gong_id: str, text: str):
         ON CONFLICT(gong_id) DO UPDATE SET
             transcript_text=excluded.transcript_text, updated_at=datetime('now')
     """, (gong_id, text))
+
+
+def upsert_contact(conn: sqlite3.Connection, row: dict):
+    conn.execute("""
+        INSERT INTO hs_contacts
+            (hubspot_id, email, first_name, last_name, company_id, company_name,
+             bant_score, budget_score, authority_score, need_score, timeline_score,
+             lead_qualification_status, gong_call_status, bant_notes, updated_at)
+        VALUES
+            (:hubspot_id,:email,:first_name,:last_name,:company_id,:company_name,
+             :bant_score,:budget_score,:authority_score,:need_score,:timeline_score,
+             :lead_qualification_status,:gong_call_status,:bant_notes, datetime('now'))
+        ON CONFLICT(hubspot_id) DO UPDATE SET
+            email=excluded.email, first_name=excluded.first_name,
+            last_name=excluded.last_name, company_id=excluded.company_id,
+            company_name=excluded.company_name,
+            bant_score=excluded.bant_score, budget_score=excluded.budget_score,
+            authority_score=excluded.authority_score, need_score=excluded.need_score,
+            timeline_score=excluded.timeline_score,
+            lead_qualification_status=excluded.lead_qualification_status,
+            gong_call_status=excluded.gong_call_status,
+            bant_notes=excluded.bant_notes, updated_at=datetime('now')
+    """, row)
 
 
 def upsert_gong_summary(conn: sqlite3.Connection, gong_id: str, summary_json: str, model: str):

@@ -457,6 +457,94 @@ def snapshot_deals(company_map: dict, owner_map: dict, owner_name_map: dict, fie
     return rows_written
 
 
+# ── Contacts (BANT data written by N8N) ──────────────────────────────────────
+
+BANT_CONTACT_PROPS = [
+    "email", "firstname", "lastname",
+    "bant_score", "bant_raw_scores",
+    "budget_score", "authority_score", "need_score", "timeline_score",
+    "lead_qualification_status", "gong_call_status",
+    "bant_notes", "budget_signals", "timeline_urgency",
+    "pain_points_usecase", "gong_next_steps",
+]
+
+
+def get_contact_company_associations(contact_ids: list) -> dict:
+    """Returns {contact_id: company_id} via v4 batch associations endpoint."""
+    result = {}
+    if not contact_ids:
+        return result
+    try:
+        for i in range(0, len(contact_ids), 100):
+            batch = contact_ids[i:i+100]
+            body = {"inputs": [{"id": str(cid)} for cid in batch]}
+            data = hs_post("/crm/v4/associations/contacts/companies/batch/read", body)
+            for item in data.get("results", []):
+                from_id = str(item.get("from", {}).get("id", ""))
+                to_list = item.get("to", [])
+                if from_id and to_list:
+                    result[from_id] = str(to_list[0].get("toObjectId", ""))
+        log.info("Resolved company associations for %d contacts", len(result))
+    except Exception as e:
+        log.warning("Could not fetch contact-company associations: %s", e)
+    return result
+
+
+def snapshot_contacts(company_map: dict) -> int:
+    """Pull all contacts that have been analyzed by N8N (gong_call_status set)."""
+    body = {
+        "properties": BANT_CONTACT_PROPS,
+        "filterGroups": [
+            {
+                "filters": [
+                    {"propertyName": "gong_call_status", "operator": "HAS_PROPERTY"}
+                ]
+            }
+        ],
+        "sorts": [{"propertyName": "lastmodifieddate", "direction": "DESCENDING"}],
+    }
+
+    raw_contacts = search_paginate("/crm/v3/objects/contacts/search", body)
+    log.info("Fetched %d BANT-analyzed contacts from HubSpot", len(raw_contacts))
+
+    if not raw_contacts:
+        return 0
+
+    # Batch-fetch company associations
+    contact_ids = [str(c["id"]) for c in raw_contacts]
+    contact_company_map = get_contact_company_associations(contact_ids)
+
+    rows_written = 0
+    with db.tx() as conn:
+        for c in raw_contacts:
+            p = c.get("properties", {})
+            cid = str(c["id"])
+            company_id = contact_company_map.get(cid)
+            company_row = company_map.get(company_id, {}) if company_id else {}
+
+            row = {
+                "hubspot_id": cid,
+                "email": p.get("email") or "",
+                "first_name": p.get("firstname") or "",
+                "last_name": p.get("lastname") or "",
+                "company_id": company_id or "",
+                "company_name": company_row.get("name") or "",
+                "bant_score": safe_float(p.get("bant_score")),
+                "budget_score": safe_float(p.get("budget_score")),
+                "authority_score": safe_float(p.get("authority_score")),
+                "need_score": safe_float(p.get("need_score")),
+                "timeline_score": safe_float(p.get("timeline_score")),
+                "lead_qualification_status": p.get("lead_qualification_status") or "",
+                "gong_call_status": p.get("gong_call_status") or "",
+                "bant_notes": p.get("bant_notes") or "",
+            }
+            db.upsert_contact(conn, row)
+            rows_written += 1
+
+    log.info("Wrote %d contacts to DB", rows_written)
+    return rows_written
+
+
 # ── Field map resolution ──────────────────────────────────────────────────────
 
 def build_field_map() -> dict:
@@ -496,6 +584,7 @@ def run():
         owner_map, owner_name_map = build_owner_slug_map()
         company_map = snapshot_companies(field_map)
         rows_written = snapshot_deals(company_map, owner_map, owner_name_map, field_map, stage_label_map)
+        snapshot_contacts(company_map)
 
         with db.tx() as conn:
             db.set_snapshot_meta(conn, "hubspot", "ok", rows_written)

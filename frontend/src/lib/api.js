@@ -8,8 +8,15 @@ async function get(path, params = {}) {
   return res.json();
 }
 
+async function post(path) {
+  const res = await fetch(BASE + path, { method: "POST" });
+  if (!res.ok) throw new Error(`API ${path} → ${res.status}`);
+  return res.json();
+}
+
 export const api = {
   health: () => get("/health"),
+  refresh: () => post("/refresh"),
   vitals: () => get("/vitals"),
   customers: (params) => get("/customers", params),
   customersExport: (params) => {
@@ -32,4 +39,9 @@ export const api = {
   callSummary: (gongId) => get(`/calls/${gongId}/summary`),
   callSummaryRefresh: (gongId) => get(`/calls/${gongId}/summary/refresh`),
   companyCalls: (companyName) => get(`/companies/${encodeURIComponent(companyName)}/calls`),
+  // GTM
+  icpSummary: () => get("/gtm/icp-summary"),
+  conversionFunnel: () => get("/gtm/conversion-funnel"),
+  firstCalls: (days = 45) => get("/gtm/first-calls", { days }),
+  gtmDeals: (params) => get("/gtm/deals", params),
 };

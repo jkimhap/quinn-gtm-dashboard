@@ -10,16 +10,53 @@ import csv
 import json
 import os
 import re
+import subprocess
+import sys
+import threading
 from datetime import date, timedelta, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Query, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from apscheduler.schedulers.background import BackgroundScheduler
 
 import db
 from config import REPS, QUARTERLY_ARR_TARGET, STAGE_BUCKET_MAP, AT_RISK_RENEWAL_DAYS
 
 db.init_db()
+
+# ── Auto-refresh scheduler ─────────────────────────────────────────────────────
+
+ET = ZoneInfo("America/New_York")
+_refresh_lock = threading.Lock()
+_last_refresh: dict = {"at": None, "status": "pending"}
+
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+def _run_snapshots():
+    """Run HubSpot + Gong snapshots in subprocesses so sys.exit() in them is safe."""
+    if not _refresh_lock.acquire(blocking=False):
+        return  # already running
+    try:
+        for script in ["snapshot_hubspot.py", "snapshot_gong.py"]:
+            subprocess.run(
+                [sys.executable, os.path.join(_backend_dir, script)],
+                cwd=_backend_dir,
+            )
+        now_et = datetime.now(ET)
+        _last_refresh["at"] = now_et.strftime("%b %-d at %-I:%M %p ET")
+        _last_refresh["status"] = "ok"
+    except Exception as e:
+        _last_refresh["status"] = f"error: {e}"
+    finally:
+        _refresh_lock.release()
+
+
+_scheduler = BackgroundScheduler(timezone="America/New_York")
+_scheduler.add_job(_run_snapshots, "interval", hours=6, id="snapshot_refresh")
+_scheduler.start()
 
 app = FastAPI(title="Quinn GTM Dashboard API")
 app.add_middleware(
@@ -96,12 +133,38 @@ def data_available(rows) -> bool:
 @app.get("/api/health")
 def health():
     meta = db.q("SELECT * FROM snapshot_meta")
+    # Format last refresh time in ET
+    last_refresh_display = _last_refresh.get("at")
+    if not last_refresh_display:
+        # Fall back to most-recent snapshot ran_at from DB
+        meta_by_source = {r["source"]: r for r in meta}
+        hs_ran = (meta_by_source.get("hubspot") or {}).get("ran_at")
+        if hs_ran:
+            try:
+                dt = datetime.strptime(hs_ran[:19], "%Y-%m-%d %H:%M:%S").replace(
+                    tzinfo=ZoneInfo("UTC")
+                )
+                last_refresh_display = dt.astimezone(ET).strftime("%b %-d at %-I:%M %p ET")
+            except Exception:
+                last_refresh_display = hs_ran[:16]
     return {
         "status": "ok",
+        "last_refresh": last_refresh_display,
+        "refresh_running": _refresh_lock.locked(),
         "snapshots": {r["source"]: {"ran_at": r["ran_at"], "status": r["status"],
                                      "rows": r["rows_written"], "error": r["error"]}
                       for r in meta},
     }
+
+
+@app.post("/api/refresh")
+def manual_refresh():
+    """Trigger an immediate data refresh (non-blocking)."""
+    if _refresh_lock.locked():
+        return {"status": "already_running"}
+    t = threading.Thread(target=_run_snapshots, daemon=True)
+    t.start()
+    return {"status": "started"}
 
 
 # ── /api/vitals ────────────────────────────────────────────────────────────────
@@ -1029,6 +1092,274 @@ def company_calls(company_name: str):
            {deal_clause}
         ORDER BY g.started_at DESC
     """, params)
+    return {"data": rows, "count": len(rows)}
+
+
+# ── /api/gtm/icp-summary ──────────────────────────────────────────────────────
+
+# Market sizing data from Google Sheet (cols P2:U7, read 2025-05)
+_ICP_MARKET = [
+    {"tier": "T1", "label": "Tier 1 — Core ICP", "description": "HVAC, Plumbing, Pest Control, Electrical, Roofing (50+ employees)",
+     "companies": 14396, "sam_m": 719.8, "som_m": 169.5},
+    {"tier": "T2", "label": "Tier 2 — Strong Fit", "description": "Landscaping, Cleaning, Facilities, Construction, Home Services",
+     "companies": 3420, "sam_m": 171.0, "som_m": 27.45},
+    {"tier": "T3", "label": "Tier 3 — Possible Fit", "description": "Other field-service adjacent (lower priority)",
+     "companies": 14614, "sam_m": 730.7, "som_m": 29.05},
+    {"tier": "T4", "label": "Tier 4 — Low Priority", "description": "Non-core industries",
+     "companies": 185838, "sam_m": 9290.0, "som_m": 1470.0},
+]
+
+# Map config.py tier labels (1A, 1B, 2A, 2B, 3) → sheet T1-T4
+_TIER_GROUP = {"1A": "T1", "1B": "T1", "2A": "T2", "2B": "T3", "3": "T3"}
+
+
+@app.get("/api/gtm/icp-summary")
+def gtm_icp_summary():
+    # Pipeline distribution (open deals) by tier
+    open_deals = db.q(
+        "SELECT icp_tier, COUNT(*) as cnt, SUM(amount) as pipeline "
+        "FROM deals WHERE is_closed_won=0 AND is_closed_lost=0 "
+        "GROUP BY icp_tier"
+    )
+    # Customer distribution (won deals) by tier
+    won_deals = db.q(
+        "SELECT icp_tier, COUNT(DISTINCT company_id) as logos, SUM(arr) as arr "
+        "FROM deals WHERE is_closed_won=1 AND status IN ('active','at-risk') "
+        "GROUP BY icp_tier"
+    )
+
+    def group_by_sheet_tier(rows, cnt_key):
+        grouped: dict[str, dict] = {}
+        for r in rows:
+            raw_tier = (r.get("icp_tier") or "").strip()
+            sheet_tier = _TIER_GROUP.get(raw_tier, "Other")
+            if sheet_tier not in grouped:
+                grouped[sheet_tier] = {cnt_key: 0}
+            grouped[sheet_tier][cnt_key] = grouped[sheet_tier].get(cnt_key, 0) + (r.get(cnt_key) or 0)
+            if "pipeline" in r:
+                grouped[sheet_tier]["pipeline"] = grouped[sheet_tier].get("pipeline", 0) + (r.get("pipeline") or 0)
+            if "arr" in r:
+                grouped[sheet_tier]["arr"] = grouped[sheet_tier].get("arr", 0) + (r.get("arr") or 0)
+        return grouped
+
+    pipeline_by_tier = group_by_sheet_tier(open_deals, "cnt")
+    customers_by_tier = group_by_sheet_tier(won_deals, "logos")
+
+    return {
+        "market": _ICP_MARKET,
+        "pipeline_by_tier": pipeline_by_tier,
+        "customers_by_tier": customers_by_tier,
+    }
+
+
+# ── /api/gtm/conversion-funnel ────────────────────────────────────────────────
+
+@app.get("/api/gtm/conversion-funnel")
+def gtm_conversion_funnel():
+    """
+    For each of the last 6 months, look at deals created that month and
+    report what stage they've currently reached.
+    """
+    today = date.today()
+    rows = []
+    for i in range(5, -1, -1):
+        # First/last day of month i months ago
+        target = (today.replace(day=1) - timedelta(days=i * 28)).replace(day=1)
+        if target.month == 12:
+            next_month = target.replace(year=target.year + 1, month=1, day=1)
+        else:
+            next_month = target.replace(month=target.month + 1, day=1)
+
+        month_str = target.strftime("%Y-%m")
+        label = target.strftime("%b %y")
+        start = target.isoformat()
+        end = (next_month - timedelta(days=1)).isoformat()
+
+        # Deals created this month (exclude purely lost ones created+closed same month for noise reduction)
+        deals = db.q(
+            "SELECT stage_bucket, is_closed_won, is_closed_lost FROM deals "
+            "WHERE create_date >= ? AND create_date <= ?",
+            (start, end)
+        )
+        total = len(deals)
+        if total == 0:
+            rows.append({"month": month_str, "label": label, "total": 0,
+                         "early": 0, "mid": 0, "late": 0, "won": 0,
+                         "pct_mid": None, "pct_late": None, "pct_won": None})
+            continue
+
+        # A deal "reached" a stage if its CURRENT stage_bucket is that stage or further
+        stage_order = {"early": 1, "mid": 2, "late": 3, "closed_won": 4, "closed_lost": 0, "unknown": 0}
+        reached_mid = sum(1 for d in deals if stage_order.get(d["stage_bucket"], 0) >= 2)
+        reached_late = sum(1 for d in deals if stage_order.get(d["stage_bucket"], 0) >= 3)
+        reached_won = sum(1 for d in deals if d["is_closed_won"])
+
+        rows.append({
+            "month": month_str,
+            "label": label,
+            "total": total,
+            "early": sum(1 for d in deals if d["stage_bucket"] == "early"),
+            "mid": reached_mid,
+            "late": reached_late,
+            "won": reached_won,
+            "pct_mid": round(reached_mid / total * 100, 1) if total else None,
+            "pct_late": round(reached_late / total * 100, 1) if total else None,
+            "pct_won": round(reached_won / total * 100, 1) if total else None,
+        })
+
+    return {"data": rows}
+
+
+# ── /api/gtm/first-calls ──────────────────────────────────────────────────────
+
+@app.get("/api/gtm/first-calls")
+def gtm_first_calls(days: int = Query(45, ge=7, le=180)):
+    """
+    Returns companies whose first-ever Gong call was within the last `days` days.
+    Joins with hs_contacts BANT data via company_id.
+    """
+    since = (date.today() - timedelta(days=days)).isoformat()
+
+    # For each company (matched_company), find their first call date
+    all_first = db.q("""
+        SELECT matched_company, MIN(started_at) as first_call_at
+        FROM gong_calls
+        WHERE matched_company != ''
+        GROUP BY matched_company
+        HAVING first_call_at >= ?
+        ORDER BY first_call_at DESC
+    """, (since,))
+
+    if not all_first:
+        return {"data": [], "count": 0}
+
+    results = []
+    for fc in all_first:
+        company = fc["matched_company"]
+        first_at = fc["first_call_at"]
+
+        # Get call details
+        call = db.q1("""
+            SELECT g.gong_id, g.title, g.started_at, g.rep_slug, g.duration_secs
+            FROM gong_calls g
+            WHERE g.matched_company = ? AND g.started_at = ?
+            LIMIT 1
+        """, (company, first_at))
+        if not call:
+            continue
+
+        # Get HubSpot deal info for this company
+        deal = db.q1("""
+            SELECT d.hubspot_id, d.company_id, d.icp_tier, d.vertical, d.stage_bucket,
+                   d.owner_name, d.owner_slug
+            FROM deals d
+            WHERE d.company_name = ? OR d.company_name LIKE ?
+            ORDER BY d.create_date DESC
+            LIMIT 1
+        """, (company, f"%{company.split()[0]}%"))
+
+        # Get BANT data from hs_contacts (best contact for this company)
+        bant = None
+        if deal and deal.get("company_id"):
+            bant = db.q1("""
+                SELECT bant_score, budget_score, authority_score, need_score,
+                       timeline_score, lead_qualification_status, first_name, last_name, email
+                FROM hs_contacts
+                WHERE company_id = ?
+                ORDER BY bant_score DESC NULLS LAST
+                LIMIT 1
+            """, (deal["company_id"],))
+
+        rep_name = REPS.get(call.get("rep_slug") or "", {}).get("name") or call.get("rep_slug") or "—"
+        tier = (deal or {}).get("icp_tier") or "—"
+        sheet_tier = _TIER_GROUP.get(tier, tier)
+
+        results.append({
+            "company": company,
+            "tier": sheet_tier,
+            "tier_raw": tier,
+            "call_date": (call["started_at"] or "")[:10],
+            "rep": rep_name,
+            "rep_slug": call.get("rep_slug") or "",
+            "gong_id": call["gong_id"],
+            "hubspot_deal_id": (deal or {}).get("hubspot_id") or "",
+            "stage": (deal or {}).get("stage_bucket") or "—",
+            "contact_name": (
+                f"{(bant or {}).get('first_name','')} {(bant or {}).get('last_name','')}".strip()
+                if bant else ""
+            ),
+            "bant_score": (bant or {}).get("bant_score"),
+            "budget_score": (bant or {}).get("budget_score"),
+            "authority_score": (bant or {}).get("authority_score"),
+            "need_score": (bant or {}).get("need_score"),
+            "timeline_score": (bant or {}).get("timeline_score"),
+            "qualification_status": (bant or {}).get("lead_qualification_status") or "—",
+        })
+
+    return {"data": results, "count": len(results)}
+
+
+# ── /api/gtm/deals ────────────────────────────────────────────────────────────
+
+@app.get("/api/gtm/deals")
+def gtm_deals(
+    stage: str = Query(None, description="Filter by stage_bucket"),
+    owner: str = Query(None),
+    days_created: int = Query(None, description="Deals created in last N days"),
+):
+    where = ["1=1"]
+    params: list = []
+
+    # By default: show open deals + recently closed/lost (last 90 days)
+    if not stage:
+        where.append(
+            "(is_closed_won=0 AND is_closed_lost=0) OR "
+            "(is_closed_won=1 AND closed_won_date >= ?) OR "
+            "(is_closed_lost=1 AND close_date >= ?)"
+        )
+        ninety_ago = (date.today() - timedelta(days=90)).isoformat()
+        params.extend([ninety_ago, ninety_ago])
+    else:
+        where.append("stage_bucket = ?")
+        params.append(stage)
+
+    if owner:
+        where.append("(owner_slug = ? OR owner_name = ?)")
+        params.extend([owner, owner])
+    if days_created:
+        since = (date.today() - timedelta(days=days_created)).isoformat()
+        where.append("create_date >= ?")
+        params.append(since)
+
+    rows = db.q(f"""
+        SELECT
+            hubspot_id,
+            deal_name,
+            company_name,
+            vertical,
+            icp_tier,
+            stage,
+            stage_bucket,
+            amount    AS tcv,
+            arr,
+            owner_name,
+            owner_slug,
+            create_date,
+            close_date,
+            closed_won_date,
+            status,
+            is_closed_won,
+            is_closed_lost
+        FROM deals
+        WHERE {' AND '.join(where)}
+        ORDER BY
+            CASE stage_bucket
+                WHEN 'late' THEN 1 WHEN 'mid' THEN 2
+                WHEN 'early' THEN 3 WHEN 'closed_won' THEN 4
+                ELSE 5 END,
+            close_date ASC
+    """, tuple(params))
+
     return {"data": rows, "count": len(rows)}
 
 
