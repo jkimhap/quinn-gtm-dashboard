@@ -1150,8 +1150,13 @@ _ICP_MARKET = [
      "companies": 185838, "sam_m": 9290.0, "som_m": 1470.0},
 ]
 
-# Map config.py tier labels (1A, 1B, 2A, 2B, 3) → sheet T1-T4
-_TIER_GROUP = {"1A": "T1", "1B": "T1", "2A": "T2", "2B": "T3", "3": "T3"}
+# Map tier labels → canonical T1-T4
+# New naming (config.py now outputs T1-T4 directly)
+# Legacy naming (old DB rows still have 1A/1B/2A/2B/3)
+_TIER_GROUP = {
+    "T1": "T1", "T2": "T2", "T3": "T3", "T4": "T4",
+    "1A": "T1", "1B": "T1", "2A": "T2", "2B": "T3", "3": "T3",
+}
 
 
 @app.get("/api/gtm/icp-summary")
@@ -1261,12 +1266,16 @@ def gtm_first_calls(days: int = Query(45, ge=7, le=180)):
     """
     since = (date.today() - timedelta(days=days)).isoformat()
 
-    # For each company (matched_company), find their first call date
+    # Use matched_company when available, otherwise fall back to company_name
+    # (extracted from title). This ensures calls with new prospects who don't
+    # yet have a HubSpot deal still appear.
     all_first = db.q("""
-        SELECT matched_company, MIN(started_at) as first_call_at
+        SELECT
+            CASE WHEN matched_company != '' THEN matched_company ELSE company_name END AS eff_company,
+            MIN(started_at) AS first_call_at
         FROM gong_calls
-        WHERE matched_company != ''
-        GROUP BY matched_company
+        WHERE matched_company != '' OR company_name != ''
+        GROUP BY eff_company
         HAVING first_call_at >= ?
         ORDER BY first_call_at DESC
     """, (since,))
@@ -1276,28 +1285,31 @@ def gtm_first_calls(days: int = Query(45, ge=7, le=180)):
 
     results = []
     for fc in all_first:
-        company = fc["matched_company"]
+        company = fc["eff_company"]
         first_at = fc["first_call_at"]
 
-        # Get call details
+        # Get call details — search both matched_company and company_name
         call = db.q1("""
             SELECT g.gong_id, g.title, g.started_at, g.rep_slug, g.duration_secs
             FROM gong_calls g
-            WHERE g.matched_company = ? AND g.started_at = ?
+            WHERE (g.matched_company = ? OR g.company_name = ?) AND g.started_at = ?
             LIMIT 1
-        """, (company, first_at))
+        """, (company, company, first_at))
         if not call:
             continue
 
-        # Get HubSpot deal info for this company
+        # Get HubSpot deal info (flexible match)
+        first_word = company.split()[0] if company else ""
         deal = db.q1("""
             SELECT d.hubspot_id, d.company_id, d.icp_tier, d.vertical, d.stage_bucket,
                    d.owner_name, d.owner_slug
             FROM deals d
-            WHERE d.company_name = ? OR d.company_name LIKE ?
+            WHERE d.company_name = ?
+               OR d.company_name LIKE ?
+               OR d.company_name LIKE ?
             ORDER BY d.create_date DESC
             LIMIT 1
-        """, (company, f"%{company.split()[0]}%"))
+        """, (company, f"%{company}%", f"%{first_word}%"))
 
         # Get BANT data from hs_contacts (best contact for this company)
         bant = None
@@ -1312,8 +1324,12 @@ def gtm_first_calls(days: int = Query(45, ge=7, le=180)):
             """, (deal["company_id"],))
 
         rep_name = REPS.get(call.get("rep_slug") or "", {}).get("name") or call.get("rep_slug") or "—"
-        tier = (deal or {}).get("icp_tier") or "—"
-        sheet_tier = _TIER_GROUP.get(tier, tier)
+        raw_tier = (deal or {}).get("icp_tier") or ""
+        # If no tier from deal, try companies table via company_id
+        if not raw_tier and deal and deal.get("company_id"):
+            co = db.q1("SELECT icp_tier FROM companies WHERE hubspot_id = ?", (deal["company_id"],))
+            raw_tier = (co or {}).get("icp_tier") or ""
+        sheet_tier = _TIER_GROUP.get(raw_tier, raw_tier or "—")
 
         results.append({
             "company": company,

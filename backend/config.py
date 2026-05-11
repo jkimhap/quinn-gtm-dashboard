@@ -47,64 +47,128 @@ REPS = {
 }
 
 # ── ICP Tier Mapping ───────────────────────────────────────────────────────────
-# Maps normalized industry string → tier label.
-# Add rows as needed when new verticals appear in HubSpot.
+# Maps normalized HubSpot industry string → tier label (T1–T4).
+# HubSpot sends industry in CAPS_UNDERSCORE format — all keys are lowercased
+# at runtime via normalize_industry() before lookup.
+# T1 = core ICP (HVAC, Plumbing, Pest Control, Electrical, Roofing — 50+ emp)
+# T2 = strong fit (Landscaping, Cleaning, Facilities, Construction, Home Svcs)
+# T3 = possible fit (Healthcare, Hospitality, Manufacturing, etc.)
+# T4 = non-core / low priority
 ICP_TIER_MAP: dict[str, str] = {
-    # Tier 1A — core ICP
-    "hvac": "1A",
-    "heating and air conditioning": "1A",
-    "heating, ventilation & air conditioning": "1A",
-    "plumbing": "1A",
-    "pest control": "1A",
-    "extermination": "1A",
-    # Tier 1B — similar but higher friction (safety/cert needs)
-    "electrical": "1B",
-    "electrician": "1B",
-    "electrical_electronic_manufacturing": "1B",
-    "roofing": "1B",
-    "roofing and waterproofing": "1B",
-    # Tier 2A — operationally heavy (actively pursuing)
-    "field service": "2A",
-    "landscaping": "2A",
-    "lawn care": "2A",
-    "cleaning services": "2A",
-    "janitorial": "2A",
-    "facilities management": "2A",
-    "facilities_services": "2A",
-    "property maintenance": "2A",
-    "construction": "2A",
-    "building_materials": "2A",
-    "home services": "2A",
-    "consumer_services": "2A",
-    "environmental_services": "2A",
-    "automotive": "2A",
-    # Tier 2B — uncertain fit
-    "manufacturing": "2B",
-    "distribution": "2B",
-    "wholesale": "2B",
-    "warehousing": "2B",
-    "logistics": "2B",
-    "business_supplies_and_equipment": "2B",
-    "packaging_and_containers": "2B",
-    "consumer_goods": "2B",
-    # Tier 3 — lower priority
-    "hospitality": "3",
-    "hotel": "3",
-    "lodging": "3",
-    "food service": "3",
-    "restaurant": "3",
-    "food and beverage": "3",
-    "healthcare": "3",
-    "medical": "3",
-    "health care": "3",
-    "health_wellness_and_fitness": "3",
-    "pharmaceuticals": "3",
-    "retail": "3",
-    "insurance": "3",
-    "legal_services": "3",
-    "computer_software": "3",
-    "online_media": "3",
-    "airlines_aviation": "3",
+    # ── T1: Core ICP ──────────────────────────────────────────────────────────
+    # HVAC
+    "hvac": "T1",
+    "heating and air conditioning": "T1",
+    "heating, ventilation & air conditioning": "T1",
+    # Plumbing
+    "plumbing": "T1",
+    # Pest Control
+    "pest control": "T1",
+    "extermination": "T1",
+    # Electrical
+    "electrical": "T1",
+    "electrician": "T1",
+    "electrical_electronic_manufacturing": "T1",
+    # Roofing
+    "roofing": "T1",
+    "roofing and waterproofing": "T1",
+
+    # ── T2: Strong Fit ────────────────────────────────────────────────────────
+    # Facilities / Field Service
+    "field service": "T2",
+    "facilities management": "T2",
+    "facilities_services": "T2",
+    "property maintenance": "T2",
+    # Landscaping / Lawn Care
+    "landscaping": "T2",
+    "lawn care": "T2",
+    # Cleaning / Janitorial
+    "cleaning services": "T2",
+    "janitorial": "T2",
+    # Construction / Building
+    "construction": "T2",
+    "building_materials": "T2",
+    # Home Services / Consumer Services
+    "home services": "T2",
+    "consumer_services": "T2",
+    # Environmental / Industrial Automation / Utilities (field-heavy)
+    "environmental_services": "T2",
+    "renewables_environment": "T2",
+    "utilities": "T2",
+    # Automotive
+    "automotive": "T2",
+    # Security / Surveillance
+    "security_and_investigations": "T2",
+    # Machinery / Industrial Engineering (field techs on-site)
+    "machinery": "T2",
+    "mechanical_or_industrial_engineering": "T2",
+    "industrial_automation": "T2",
+
+    # ── T3: Possible Fit ──────────────────────────────────────────────────────
+    # Manufacturing / Distribution
+    "manufacturing": "T3",
+    "distribution": "T3",
+    "wholesale": "T3",
+    "warehousing": "T3",
+    "logistics": "T3",
+    "logistics_and_supply_chain": "T3",
+    "transportation_trucking_railroad": "T3",
+    "business_supplies_and_equipment": "T3",
+    "packaging_and_containers": "T3",
+    "consumer_goods": "T3",
+    # Healthcare / Medical
+    "healthcare": "T3",
+    "medical": "T3",
+    "health care": "T3",
+    "health_wellness_and_fitness": "T3",
+    "hospital_health_care": "T3",
+    "medical_devices": "T3",
+    "pharmaceuticals": "T3",
+    "biotechnology": "T3",
+    # Food / Hospitality
+    "hospitality": "T3",
+    "hotel": "T3",
+    "lodging": "T3",
+    "food service": "T3",
+    "restaurant": "T3",
+    "restaurants": "T3",
+    "food and beverage": "T3",
+    "food_beverages": "T3",
+    "food_production": "T3",
+    # Retail
+    "retail": "T3",
+    # Real Estate / Property Management
+    "real_estate": "T3",
+    # Farming / Agriculture
+    "farming": "T3",
+    # Other operationally complex
+    "printing": "T3",
+    "chemicals": "T3",
+    "plastics": "T3",
+    "mining_metals": "T3",
+    "shipbuilding": "T3",
+    "furniture": "T3",
+
+    # ── T4: Non-core / Low Priority ───────────────────────────────────────────
+    "insurance": "T4",
+    "legal_services": "T4",
+    "computer_software": "T4",
+    "information_technology_and_services": "T4",
+    "online_media": "T4",
+    "airlines_aviation": "T4",
+    "aviation_aerospace": "T4",
+    "defense_space": "T4",
+    "telecommunications": "T4",
+    "consumer_electronics": "T4",
+    "capital_markets": "T4",
+    "management_consulting": "T4",
+    "professional_training_coaching": "T4",
+    "events_services": "T4",
+    "non_profit_organization_management": "T4",
+    "religious_institutions": "T4",
+    "research": "T4",
+    "textiles": "T4",
+    "oil_energy": "T4",
 }
 
 # ── Vertical Canonical Names ───────────────────────────────────────────────────

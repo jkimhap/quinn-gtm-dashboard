@@ -88,11 +88,17 @@ function CompanyCallsModal({ company, onClose }) {
 }
 
 const TIER_META = {
-  "1A": { cls: "badge badge-1a", label: "1A" },
-  "1B": { cls: "badge badge-1b", label: "1B" },
-  "2A": { cls: "badge badge-2a", label: "2A" },
-  "2B": { cls: "badge badge-2b", label: "2B" },
-  "3":  { cls: "badge badge-3",  label: "3"  },
+  // Current naming (T1-T4)
+  "T1": { cls: "badge border border-emerald-700 text-emerald-400 bg-emerald-900/30", label: "T1" },
+  "T2": { cls: "badge border border-blue-700 text-blue-400 bg-blue-900/30",          label: "T2" },
+  "T3": { cls: "badge border border-amber-700 text-amber-400 bg-amber-900/30",       label: "T3" },
+  "T4": { cls: "badge border border-gray-700 text-gray-500 bg-gray-800/40",          label: "T4" },
+  // Legacy fallback (old DB rows not yet refreshed)
+  "1A": { cls: "badge border border-emerald-700 text-emerald-400 bg-emerald-900/30", label: "T1" },
+  "1B": { cls: "badge border border-emerald-700 text-emerald-400 bg-emerald-900/30", label: "T1" },
+  "2A": { cls: "badge border border-blue-700 text-blue-400 bg-blue-900/30",          label: "T2" },
+  "2B": { cls: "badge border border-amber-700 text-amber-400 bg-amber-900/30",       label: "T3" },
+  "3":  { cls: "badge border border-amber-700 text-amber-400 bg-amber-900/30",       label: "T3" },
 };
 
 const STATUS_META = {

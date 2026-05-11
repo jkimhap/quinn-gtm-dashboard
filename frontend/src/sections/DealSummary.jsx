@@ -21,9 +21,18 @@ const BUCKET_COLOR = {
 };
 
 const TIER_COLOR = {
+  // New naming
+  "T1": "text-emerald-400", "T2": "text-blue-400",
+  "T3": "text-amber-400", "T4": "text-gray-500",
+  // Legacy fallback (old DB rows)
   "1A": "text-emerald-400", "1B": "text-emerald-300",
   "2A": "text-blue-400", "2B": "text-blue-300",
   "3": "text-amber-400",
+};
+
+const TIER_DISPLAY = {
+  "1A": "T1", "1B": "T1", "2A": "T2", "2B": "T3", "3": "T3",
+  "T1": "T1", "T2": "T2", "T3": "T3", "T4": "T4",
 };
 
 function fmt_date(str) {
@@ -121,7 +130,9 @@ export default function DealSummary() {
                     </span>
                   </td>
                   <td className="py-1.5 pr-3 hidden md:table-cell">
-                    <span className={`${TIER_COLOR[r.icp_tier] || "text-gray-500"}`}>{r.icp_tier || "—"}</span>
+                    <span className={`font-medium ${TIER_COLOR[r.icp_tier] || "text-gray-500"}`}>
+                      {TIER_DISPLAY[r.icp_tier] || r.icp_tier || "—"}
+                    </span>
                   </td>
                   <td className="py-1.5 pr-3 text-right text-gray-300 tabular-nums">
                     {r.tcv ? fmt$(r.tcv, { compact: true }) : "—"}

@@ -129,6 +129,7 @@ def resolve_field(available: set[str], hints: list[str]) -> "Optional[str]":
 # ── Normalization helpers ─────────────────────────────────────────────────────
 
 def normalize_industry(raw: "Optional[str]") -> str:
+    """Lowercase and convert CAPS_UNDERSCORE (HubSpot format) to lowercase_underscore."""
     if not raw:
         return ""
     return raw.strip().lower()

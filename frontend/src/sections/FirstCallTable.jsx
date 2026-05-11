@@ -10,34 +10,49 @@ const TIER_COLOR = {
   T4: "text-gray-500",
 };
 
-function ScorePip({ score, max, color }) {
-  if (score == null) return <span className="text-gray-600">—</span>;
-  const pct = Math.min(100, Math.round((score / max) * 100));
-  return (
-    <div className="flex items-center gap-1 min-w-[52px]">
-      <span className={`tabular-nums text-xs ${color}`}>{score}</span>
-      <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${color.replace("text-", "bg-")}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
+const STAGE_LABEL = {
+  early: "Discovery",
+  mid: "Demo/Quote",
+  late: "Verbal Commit",
+  closed_won: "Won",
+  closed_lost: "Lost",
+  unknown: "New",
+};
+
+const STAGE_COLOR = {
+  early: "text-blue-400",
+  mid: "text-purple-400",
+  late: "text-amber-400",
+  closed_won: "text-emerald-400",
+  closed_lost: "text-red-400",
+  unknown: "text-gray-500",
+};
 
 function StatusBadge({ status }) {
   if (!status || status === "—") return <span className="text-gray-600">—</span>;
-  const lower = status.toLowerCase();
-  if (lower.includes("qualif") && !lower.includes("dis")) {
+  const lower = (status || "").toLowerCase().replace(/_/g, " ");
+  if (lower === "true" || lower === "1") {
+    // Raw boolean — probably means qualified
     return <span className="text-xs font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-1.5 py-0.5 rounded">Qualified</span>;
   }
-  if (lower.includes("disqual") || lower.includes("not")) {
+  if (lower.includes("qualif") && !lower.includes("dis") && !lower.includes("not")) {
+    return <span className="text-xs font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-1.5 py-0.5 rounded">Qualified</span>;
+  }
+  if (lower.includes("disqual") || lower.includes("not qualif") || lower === "false" || lower === "0") {
     return <span className="text-xs font-semibold text-red-400 bg-red-400/10 border border-red-400/30 px-1.5 py-0.5 rounded">DQ'd</span>;
   }
-  return <span className="text-xs text-gray-400">{status}</span>;
+  if (lower.includes("review") || lower.includes("pending")) {
+    return <span className="text-xs font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.5 rounded">Pending</span>;
+  }
+  // Show whatever raw value it is, truncated
+  return <span className="text-xs text-gray-400">{status.slice(0, 20)}</span>;
 }
 
 function fmt_date(str) {
   if (!str) return "—";
-  return new Date(str + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Date(str.replace(" ", "T")).toLocaleDateString("en-US", {
+    month: "short", day: "numeric",
+  });
 }
 
 export default function FirstCallTable() {
@@ -55,6 +70,7 @@ export default function FirstCallTable() {
   }, [days]);
 
   const rows = data?.data || [];
+  const bantMissing = rows.length > 0 && rows.every(r => r.bant_score == null);
 
   return (
     <div>
@@ -66,9 +82,7 @@ export default function FirstCallTable() {
               key={d}
               onClick={() => setDays(d)}
               className={`text-xs px-2 py-1 rounded transition-colors ${
-                days === d
-                  ? "bg-quinn-700 text-white"
-                  : "text-gray-500 hover:text-gray-300"
+                days === d ? "bg-quinn-700 text-white" : "text-gray-500 hover:text-gray-300"
               }`}
             >
               {d}d
@@ -77,8 +91,20 @@ export default function FirstCallTable() {
         </div>
       </div>
       <p className="text-xs text-gray-500 mb-4">
-        Companies whose first-ever Gong call was in the last {days} days. BANT scores from N8N/HubSpot.
+        Companies whose <em>first-ever</em> Gong call with Quinn was in the last {days} days.
+        BANT scores are written by the N8N qualification workflow after each call.
       </p>
+
+      {bantMissing && (
+        <div className="mb-3 flex items-start gap-2 text-xs text-amber-400 bg-amber-400/5 border border-amber-400/20 rounded-lg px-3 py-2">
+          <span className="shrink-0 mt-0.5">⚠</span>
+          <span>
+            BANT scores are empty — the N8N workflow hasn't written scores for these calls yet,
+            or the latest HubSpot snapshot hasn't run. Click <strong>↺ Refresh Data</strong> in the
+            header to pull the latest data.
+          </span>
+        </div>
+      )}
 
       <div className="card overflow-x-auto">
         {loading && (
@@ -90,7 +116,9 @@ export default function FirstCallTable() {
         )}
         {err && <div className="text-red-400 text-sm py-2">{err}</div>}
         {!loading && !err && rows.length === 0 && (
-          <p className="text-xs text-gray-500 italic py-4 text-center">No first calls found in the last {days} days.</p>
+          <p className="text-xs text-gray-500 italic py-4 text-center">
+            No first calls found in the last {days} days.
+          </p>
         )}
         {!loading && rows.length > 0 && (
           <table className="w-full text-xs">
@@ -100,36 +128,73 @@ export default function FirstCallTable() {
                 <th className="text-left pb-2 pr-3">Tier</th>
                 <th className="text-left pb-2 pr-3">Date</th>
                 <th className="text-left pb-2 pr-3">Rep</th>
-                <th className="text-left pb-2 pr-3">Contact</th>
-                <th className="text-right pb-2 pr-2">BANT</th>
-                <th className="text-right pb-2 pr-2 hidden lg:table-cell">B</th>
-                <th className="text-right pb-2 pr-2 hidden lg:table-cell">A</th>
-                <th className="text-right pb-2 pr-2 hidden lg:table-cell">N</th>
-                <th className="text-right pb-2 pr-3 hidden lg:table-cell">T</th>
-                <th className="text-left pb-2 pr-3">Status</th>
+                <th className="text-left pb-2 pr-3 hidden md:table-cell">HubSpot Stage</th>
+                <th className="text-left pb-2 pr-3 hidden md:table-cell">Contact</th>
+                <th
+                  className="text-right pb-2 pr-2"
+                  title="Total BANT score out of 100 (Budget 15 + Authority 25 + Need 40 + Timeline 20)"
+                >
+                  BANT /100
+                </th>
+                <th className="text-right pb-2 pr-2 hidden lg:table-cell" title="Budget (max 15)">B</th>
+                <th className="text-right pb-2 pr-2 hidden lg:table-cell" title="Authority (max 25)">A</th>
+                <th className="text-right pb-2 pr-2 hidden lg:table-cell" title="Need (max 40)">N</th>
+                <th className="text-right pb-2 pr-3 hidden lg:table-cell" title="Timeline (max 20)">T</th>
+                <th
+                  className="text-left pb-2 pr-3"
+                  title="Qualified = BANT ≥ 50 for T1/T2, ≥ 70 for T3/T4"
+                >
+                  N8N Result
+                </th>
                 <th className="text-left pb-2">Links</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.gong_id} className="border-b border-gray-800/40 hover:bg-gray-800/20">
-                  <td className="py-1.5 pr-3 font-medium text-gray-200 max-w-[140px] truncate">{r.company}</td>
-                  <td className="py-1.5 pr-3">
-                    <span className={`font-semibold ${TIER_COLOR[r.tier] || "text-gray-500"}`}>{r.tier}</span>
+                  <td className="py-1.5 pr-3 font-medium text-gray-200 max-w-[160px] truncate">
+                    {r.company}
                   </td>
-                  <td className="py-1.5 pr-3 text-gray-400 whitespace-nowrap">{fmt_date(r.call_date)}</td>
-                  <td className="py-1.5 pr-3 text-gray-400">{r.rep}</td>
-                  <td className="py-1.5 pr-3 text-gray-500 max-w-[120px] truncate">{r.contact_name || "—"}</td>
-                  <td className="py-1.5 pr-2 text-right">
-                    {r.bant_score != null
-                      ? <span className={`font-semibold tabular-nums ${r.bant_score >= 50 ? "text-emerald-400" : "text-amber-400"}`}>{r.bant_score}</span>
+                  <td className="py-1.5 pr-3">
+                    {r.tier && r.tier !== "—"
+                      ? <span className={`font-semibold ${TIER_COLOR[r.tier] || "text-gray-500"}`}>{r.tier}</span>
                       : <span className="text-gray-600">—</span>
                     }
                   </td>
-                  <td className="py-1.5 pr-2 text-right hidden lg:table-cell text-gray-400 tabular-nums">{r.budget_score ?? "—"}</td>
-                  <td className="py-1.5 pr-2 text-right hidden lg:table-cell text-gray-400 tabular-nums">{r.authority_score ?? "—"}</td>
-                  <td className="py-1.5 pr-2 text-right hidden lg:table-cell text-gray-400 tabular-nums">{r.need_score ?? "—"}</td>
-                  <td className="py-1.5 pr-3 text-right hidden lg:table-cell text-gray-400 tabular-nums">{r.timeline_score ?? "—"}</td>
+                  <td className="py-1.5 pr-3 text-gray-400 whitespace-nowrap">{fmt_date(r.call_date)}</td>
+                  <td className="py-1.5 pr-3 text-gray-400">{r.rep}</td>
+                  <td className="py-1.5 pr-3 hidden md:table-cell">
+                    {r.stage && r.stage !== "—"
+                      ? <span className={`${STAGE_COLOR[r.stage] || "text-gray-400"}`}>
+                          {STAGE_LABEL[r.stage] || r.stage}
+                        </span>
+                      : <span className="text-gray-600">No deal yet</span>
+                    }
+                  </td>
+                  <td className="py-1.5 pr-3 text-gray-500 max-w-[120px] truncate hidden md:table-cell">
+                    {r.contact_name || <span className="text-gray-700 italic">—</span>}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right">
+                    {r.bant_score != null
+                      ? <span className={`font-semibold tabular-nums ${
+                          r.bant_score >= 70 ? "text-emerald-400" :
+                          r.bant_score >= 50 ? "text-amber-400" : "text-red-400"
+                        }`}>{r.bant_score}</span>
+                      : <span className="text-gray-700">—</span>
+                    }
+                  </td>
+                  <td className="py-1.5 pr-2 text-right hidden lg:table-cell text-gray-500 tabular-nums">
+                    {r.budget_score ?? <span className="text-gray-700">—</span>}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right hidden lg:table-cell text-gray-500 tabular-nums">
+                    {r.authority_score ?? <span className="text-gray-700">—</span>}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right hidden lg:table-cell text-gray-500 tabular-nums">
+                    {r.need_score ?? <span className="text-gray-700">—</span>}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right hidden lg:table-cell text-gray-500 tabular-nums">
+                    {r.timeline_score ?? <span className="text-gray-700">—</span>}
+                  </td>
                   <td className="py-1.5 pr-3">
                     <StatusBadge status={r.qualification_status} />
                   </td>
@@ -161,8 +226,10 @@ export default function FirstCallTable() {
           </table>
         )}
         <div className="mt-3 text-xs text-gray-600">
-          BANT max: B=15, A=25, N=40, T=20. Qualification threshold: T1/T2 ≥ 50, T3/T4 ≥ 70.
-          Rows without BANT scores haven't been analyzed by the N8N workflow yet.
+          <span className="text-gray-500">BANT breakdown:</span> Budget (max 15) · Authority (max 25) · Need (max 40) · Timeline (max 20) = 100 total. ·
+          <span className="text-gray-500 ml-1">Qualification threshold:</span> T1/T2 ≥ 50 &amp; Authority ≥ 10 · T3/T4 ≥ 70.
+          · <span className="text-gray-500">N8N Result</span> = lead_qualification_status from HubSpot, set by the N8N workflow after each call.
+          · <span className="text-gray-500">HubSpot Stage</span> = current deal stage if a deal exists; "No deal yet" = prospect hasn't been converted to a deal.
         </div>
       </div>
     </div>
