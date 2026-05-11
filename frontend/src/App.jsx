@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "./lib/api";
 import Vitals from "./sections/Vitals";
 import CustomerTable from "./sections/CustomerTable";
@@ -12,46 +12,39 @@ import ConversionFunnel from "./sections/ConversionFunnel";
 import FirstCallTable from "./sections/FirstCallTable";
 import DealSummary from "./sections/DealSummary";
 
-// ── Navigation structure ───────────────────────────────────────────────────────
-const NAV_GROUPS = [
-  {
-    group: "Vitals",
-    items: [{ id: "vitals", label: "Vitals" }],
-  },
-  {
-    group: "Go-to-Market",
-    items: [
-      { id: "trends",       label: "Trends" },
-      { id: "icp",          label: "ICP Summary" },
-      { id: "funnel",       label: "Conversion Funnel" },
-      { id: "first-calls",  label: "First Calls" },
-      { id: "deals",        label: "Deal Summary" },
-      { id: "reps",         label: "Rep Performance" },
-      { id: "pipeline",     label: "Pipeline" },
-      { id: "leading",      label: "Leading Indicators" },
-      { id: "calls",        label: "Call Intelligence" },
-    ],
-  },
-  {
-    group: "Customer Success",
-    items: [{ id: "customers", label: "Customer Master" }],
-  },
+// ── Tab definitions ────────────────────────────────────────────────────────────
+const TABS = [
+  { id: "vitals", label: "Vitals" },
+  { id: "gtm",    label: "Go-to-Market" },
+  { id: "cs",     label: "Customer Success" },
 ];
 
-const ALL_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+const GTM_SECTIONS = [
+  { id: "trends",      label: "Trends" },
+  { id: "icp",         label: "ICP Summary" },
+  { id: "funnel",      label: "Conversion Funnel" },
+  { id: "first-calls", label: "First Calls" },
+  { id: "deals",       label: "Deal Summary" },
+  { id: "reps",        label: "Rep Performance" },
+  { id: "pipeline",    label: "Pipeline" },
+  { id: "leading",     label: "Leading Indicators" },
+  { id: "calls",       label: "Call Intelligence" },
+];
 
 export default function App() {
-  const [active, setActive] = useState("vitals");
+  const [tab, setTab] = useState("vitals");
+  const [activeSection, setActiveSection] = useState("trends");
   const [snapshotMeta, setSnapshotMeta] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshLabel, setRefreshLabel] = useState(null);
+  const mainRef = useRef(null);
 
+  // ── Health polling ────────────────────────────────────────────────────────
   const fetchHealth = useCallback(() => {
     api.health().then((d) => {
       setSnapshotMeta(d);
       setRefreshLabel(d.last_refresh || null);
       if (d.refresh_running) {
-        // Poll every 5s while running
         setTimeout(fetchHealth, 5000);
       } else {
         setRefreshing(false);
@@ -63,37 +56,48 @@ export default function App() {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    api.refresh().then(() => {
-      // Poll health every 5s to detect completion
-      setTimeout(fetchHealth, 3000);
-    }).catch(() => setRefreshing(false));
+    api.refresh().then(() => setTimeout(fetchHealth, 3000)).catch(() => setRefreshing(false));
   };
 
-  const scrollTo = (id) => {
-    setActive(id);
+  // ── Tab switch: scroll main panel back to top ─────────────────────────────
+  const switchTab = (id) => {
+    setTab(id);
+    if (id === "gtm") setActiveSection("trends");
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  };
+
+  // ── GTM sub-section scroll nav ────────────────────────────────────────────
+  const scrollToSection = (id) => {
+    setActiveSection(id);
     const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (el && mainRef.current) {
+      const offset = el.offsetTop - 72; // account for sticky header
+      mainRef.current.scrollTo({ top: offset, behavior: "smooth" });
+    }
   };
 
-  // Update active item on scroll
+  // Track which GTM section is in view
   useEffect(() => {
+    if (tab !== "gtm") return;
+    const container = mainRef.current;
+    if (!container) return;
     const handler = () => {
-      for (const item of [...ALL_ITEMS].reverse()) {
-        const el = document.getElementById(item.id);
-        if (el && el.getBoundingClientRect().top <= 100) {
-          setActive(item.id);
+      for (const sec of [...GTM_SECTIONS].reverse()) {
+        const el = document.getElementById(sec.id);
+        if (el && el.getBoundingClientRect().top <= 110) {
+          setActiveSection(sec.id);
           return;
         }
       }
     };
-    window.addEventListener("scroll", handler, { passive: true });
-    return () => window.removeEventListener("scroll", handler);
-  }, []);
+    container.addEventListener("scroll", handler, { passive: true });
+    return () => container.removeEventListener("scroll", handler);
+  }, [tab]);
 
   return (
-    <div className="flex min-h-screen bg-gray-950">
-      {/* Sidebar */}
-      <aside className="w-52 shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col sticky top-0 h-screen">
+    <div className="flex h-screen bg-gray-950 overflow-hidden">
+      {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
+      <aside className="w-52 shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
         {/* Logo */}
         <div className="px-5 py-5 border-b border-gray-800">
           <div className="flex items-center gap-2">
@@ -105,26 +109,39 @@ export default function App() {
           </div>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 py-3 overflow-y-auto">
-          {NAV_GROUPS.map(({ group, items }) => (
-            <div key={group} className="mb-3">
-              <div className="px-5 pb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-widest">
-                {group}
-              </div>
-              {items.map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => scrollTo(n.id)}
-                  className={`w-full text-left px-5 py-1.5 text-sm transition-colors ${
-                    active === n.id
-                      ? "text-quinn-300 bg-quinn-950/60 border-r-2 border-quinn-400"
-                      : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
-                  }`}
-                >
-                  {n.label}
-                </button>
-              ))}
+        {/* Top-level tabs */}
+        <nav className="flex-1 overflow-y-auto py-3">
+          {TABS.map((t) => (
+            <div key={t.id}>
+              <button
+                onClick={() => switchTab(t.id)}
+                className={`w-full text-left px-5 py-2.5 text-sm font-medium transition-colors ${
+                  tab === t.id
+                    ? "text-quinn-300 bg-quinn-950/60 border-r-2 border-quinn-400"
+                    : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+                }`}
+              >
+                {t.label}
+              </button>
+
+              {/* GTM sub-sections — only shown when GTM tab is active */}
+              {t.id === "gtm" && tab === "gtm" && (
+                <div className="ml-3 border-l border-gray-800 mb-1">
+                  {GTM_SECTIONS.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => scrollToSection(s.id)}
+                      className={`w-full text-left pl-4 pr-3 py-1.5 text-xs transition-colors ${
+                        activeSection === s.id
+                          ? "text-quinn-300 border-l-2 border-quinn-400 -ml-px"
+                          : "text-gray-500 hover:text-gray-300"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </nav>
@@ -148,10 +165,10 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main */}
-      <main className="flex-1 overflow-x-hidden">
+      {/* ── Main panel ──────────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="sticky top-0 z-10 bg-gray-950/90 backdrop-blur border-b border-gray-800 px-8 py-3 flex items-center justify-between gap-4">
+        <header className="shrink-0 z-10 bg-gray-950/90 backdrop-blur border-b border-gray-800 px-8 py-3 flex items-center justify-between gap-4">
           <div className="text-sm text-gray-400 shrink-0">
             Quinn · Go-to-Market Dashboard · {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
           </div>
@@ -185,34 +202,38 @@ export default function App() {
           </div>
         </header>
 
-        {/* Content */}
-        <div className="px-8 py-6 space-y-10">
-          {/* VITALS */}
-          <section id="vitals" className="scroll-mt-16"><Vitals /></section>
+        {/* Scrollable content — isolated per tab */}
+        <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="px-8 py-6">
 
-          {/* GO-TO-MARKET */}
-          <div className="border-t border-gray-800 pt-8">
-            <div className="text-[11px] font-semibold text-gray-600 uppercase tracking-widest mb-6">Go-to-Market</div>
-            <div className="space-y-10">
-              <section id="trends" className="scroll-mt-16"><ClosedWonTrends /></section>
-              <section id="icp" className="scroll-mt-16"><IcpSummary /></section>
-              <section id="funnel" className="scroll-mt-16"><ConversionFunnel /></section>
-              <section id="first-calls" className="scroll-mt-16"><FirstCallTable /></section>
-              <section id="deals" className="scroll-mt-16"><DealSummary /></section>
-              <section id="reps" className="scroll-mt-16"><PerRepPerformance /></section>
-              <section id="pipeline" className="scroll-mt-16"><PipelineFunnel /></section>
-              <section id="leading" className="scroll-mt-16"><LeadingIndicators /></section>
-              <section id="calls" className="scroll-mt-16"><CallIntelligence /></section>
-            </div>
-          </div>
+            {/* ── VITALS ── */}
+            {tab === "vitals" && (
+              <Vitals />
+            )}
 
-          {/* CUSTOMER SUCCESS */}
-          <div className="border-t border-gray-800 pt-8">
-            <div className="text-[11px] font-semibold text-gray-600 uppercase tracking-widest mb-6">Customer Success</div>
-            <section id="customers" className="scroll-mt-16"><CustomerTable /></section>
+            {/* ── GO-TO-MARKET ── */}
+            {tab === "gtm" && (
+              <div className="space-y-10">
+                <section id="trends"><ClosedWonTrends /></section>
+                <section id="icp"><IcpSummary /></section>
+                <section id="funnel"><ConversionFunnel /></section>
+                <section id="first-calls"><FirstCallTable /></section>
+                <section id="deals"><DealSummary /></section>
+                <section id="reps"><PerRepPerformance /></section>
+                <section id="pipeline"><PipelineFunnel /></section>
+                <section id="leading"><LeadingIndicators /></section>
+                <section id="calls"><CallIntelligence /></section>
+              </div>
+            )}
+
+            {/* ── CUSTOMER SUCCESS ── */}
+            {tab === "cs" && (
+              <CustomerTable />
+            )}
+
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
