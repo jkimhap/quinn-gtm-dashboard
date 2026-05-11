@@ -44,4 +44,6 @@ export const api = {
   conversionFunnel: () => get("/gtm/conversion-funnel"),
   firstCalls: (days = 45) => get("/gtm/first-calls", { days }),
   gtmDeals: (params) => get("/gtm/deals", params),
+  // Customer Success
+  csAdoption: (search) => get("/cs/adoption", { search }),
 };

@@ -124,8 +124,37 @@ CREATE TABLE IF NOT EXISTS hs_contacts (
     updated_at              TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS quinn_orgs (
+    org_id              TEXT PRIMARY KEY,
+    org_name            TEXT,
+    product_name        TEXT,
+    org_created_at      TEXT,
+    courses_created     INTEGER DEFAULT 0,
+    white_glove_courses INTEGER DEFAULT 0,
+    progressions        INTEGER DEFAULT 0,
+    total_members       INTEGER DEFAULT 0,
+    unique_learners     INTEGER DEFAULT 0,
+    content_creators    INTEGER DEFAULT 0,
+    dau                 INTEGER DEFAULT 0,
+    wau                 INTEGER DEFAULT 0,
+    mau                 INTEGER DEFAULT 0,
+    hris_connected      INTEGER DEFAULT 0,
+    assignments_made    INTEGER DEFAULT 0,
+    courses_assigned    INTEGER DEFAULT 0,
+    courses_started     INTEGER DEFAULT 0,
+    courses_completed   INTEGER DEFAULT 0,
+    stacks_created      INTEGER DEFAULT 0,
+    groups_created      INTEGER DEFAULT 0,
+    language_count      INTEGER DEFAULT 0,
+    has_api_key         INTEGER DEFAULT 0,
+    knowledge_base_files INTEGER DEFAULT 0,
+    media_library_files INTEGER DEFAULT 0,
+    features            TEXT,
+    updated_at          TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS snapshot_meta (
-    source      TEXT PRIMARY KEY,  -- "hubspot" | "gong"
+    source      TEXT PRIMARY KEY,  -- "hubspot" | "gong" | "quinn"
     ran_at      TEXT,
     status      TEXT,
     rows_written INTEGER,
@@ -143,6 +172,8 @@ CREATE INDEX IF NOT EXISTS idx_gong_rep            ON gong_calls(rep_slug);
 CREATE INDEX IF NOT EXISTS idx_gong_started        ON gong_calls(started_at);
 CREATE INDEX IF NOT EXISTS idx_contacts_company    ON hs_contacts(company_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_gong_status ON hs_contacts(gong_call_status);
+CREATE INDEX IF NOT EXISTS idx_quinn_orgs_name      ON quinn_orgs(org_name);
+CREATE INDEX IF NOT EXISTS idx_quinn_orgs_product   ON quinn_orgs(product_name);
 """
 
 
@@ -282,6 +313,52 @@ def upsert_contact(conn: sqlite3.Connection, row: dict):
             lead_qualification_status=excluded.lead_qualification_status,
             gong_call_status=excluded.gong_call_status,
             bant_notes=excluded.bant_notes, updated_at=datetime('now')
+    """, row)
+
+
+def upsert_quinn_org(conn: sqlite3.Connection, row: dict):
+    conn.execute("""
+        INSERT INTO quinn_orgs
+            (org_id, org_name, product_name, org_created_at,
+             courses_created, white_glove_courses, progressions,
+             total_members, unique_learners, content_creators,
+             dau, wau, mau, hris_connected,
+             assignments_made, courses_assigned, courses_started, courses_completed,
+             stacks_created, groups_created, language_count,
+             has_api_key, knowledge_base_files, media_library_files,
+             features, updated_at)
+        VALUES
+            (:org_id,:org_name,:product_name,:org_created_at,
+             :courses_created,:white_glove_courses,:progressions,
+             :total_members,:unique_learners,:content_creators,
+             :dau,:wau,:mau,:hris_connected,
+             :assignments_made,:courses_assigned,:courses_started,:courses_completed,
+             :stacks_created,:groups_created,:language_count,
+             :has_api_key,:knowledge_base_files,:media_library_files,
+             :features, datetime('now'))
+        ON CONFLICT(org_id) DO UPDATE SET
+            org_name=excluded.org_name, product_name=excluded.product_name,
+            org_created_at=excluded.org_created_at,
+            courses_created=excluded.courses_created,
+            white_glove_courses=excluded.white_glove_courses,
+            progressions=excluded.progressions,
+            total_members=excluded.total_members,
+            unique_learners=excluded.unique_learners,
+            content_creators=excluded.content_creators,
+            dau=excluded.dau, wau=excluded.wau, mau=excluded.mau,
+            hris_connected=excluded.hris_connected,
+            assignments_made=excluded.assignments_made,
+            courses_assigned=excluded.courses_assigned,
+            courses_started=excluded.courses_started,
+            courses_completed=excluded.courses_completed,
+            stacks_created=excluded.stacks_created,
+            groups_created=excluded.groups_created,
+            language_count=excluded.language_count,
+            has_api_key=excluded.has_api_key,
+            knowledge_base_files=excluded.knowledge_base_files,
+            media_library_files=excluded.media_library_files,
+            features=excluded.features,
+            updated_at=datetime('now')
     """, row)
 
 

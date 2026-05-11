@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "./lib/api";
 import Vitals from "./sections/Vitals";
 import CustomerTable from "./sections/CustomerTable";
+import CustomerHealth from "./sections/CustomerHealth";
+import AdoptionMetrics from "./sections/AdoptionMetrics";
 import ClosedWonTrends from "./sections/ClosedWonTrends";
 import PerRepPerformance from "./sections/PerRepPerformance";
 import PipelineFunnel from "./sections/PipelineFunnel";
@@ -31,9 +33,16 @@ const GTM_SECTIONS = [
   { id: "calls",       label: "Call Intelligence" },
 ];
 
+const CS_SECTIONS = [
+  { id: "adoption",   label: "Product Adoption" },
+  { id: "customers",  label: "Customer Table" },
+  { id: "retention",  label: "Retention & Health" },
+];
+
 export default function App() {
   const [tab, setTab] = useState("vitals");
   const [activeSection, setActiveSection] = useState("trends");
+  const [activeCsSection, setActiveCsSection] = useState("adoption");
   const [snapshotMeta, setSnapshotMeta] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshLabel, setRefreshLabel] = useState(null);
@@ -63,6 +72,7 @@ export default function App() {
   const switchTab = (id) => {
     setTab(id);
     if (id === "gtm") setActiveSection("trends");
+    if (id === "cs") setActiveCsSection("adoption");
     if (mainRef.current) mainRef.current.scrollTop = 0;
   };
 
@@ -71,7 +81,17 @@ export default function App() {
     setActiveSection(id);
     const el = document.getElementById(id);
     if (el && mainRef.current) {
-      const offset = el.offsetTop - 72; // account for sticky header
+      const offset = el.offsetTop - 72;
+      mainRef.current.scrollTo({ top: offset, behavior: "smooth" });
+    }
+  };
+
+  // ── CS sub-section scroll nav ─────────────────────────────────────────────
+  const scrollToCsSection = (id) => {
+    setActiveCsSection(id);
+    const el = document.getElementById(`cs-${id}`);
+    if (el && mainRef.current) {
+      const offset = el.offsetTop - 72;
       mainRef.current.scrollTo({ top: offset, behavior: "smooth" });
     }
   };
@@ -86,6 +106,24 @@ export default function App() {
         const el = document.getElementById(sec.id);
         if (el && el.getBoundingClientRect().top <= 110) {
           setActiveSection(sec.id);
+          return;
+        }
+      }
+    };
+    container.addEventListener("scroll", handler, { passive: true });
+    return () => container.removeEventListener("scroll", handler);
+  }, [tab]);
+
+  // Track which CS section is in view
+  useEffect(() => {
+    if (tab !== "cs") return;
+    const container = mainRef.current;
+    if (!container) return;
+    const handler = () => {
+      for (const sec of [...CS_SECTIONS].reverse()) {
+        const el = document.getElementById(`cs-${sec.id}`);
+        if (el && el.getBoundingClientRect().top <= 110) {
+          setActiveCsSection(sec.id);
           return;
         }
       }
@@ -142,6 +180,25 @@ export default function App() {
                   ))}
                 </div>
               )}
+
+              {/* CS sub-sections — only shown when CS tab is active */}
+              {t.id === "cs" && tab === "cs" && (
+                <div className="ml-3 border-l border-gray-800 mb-1">
+                  {CS_SECTIONS.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => scrollToCsSection(s.id)}
+                      className={`w-full text-left pl-4 pr-3 py-1.5 text-xs transition-colors ${
+                        activeCsSection === s.id
+                          ? "text-quinn-300 border-l-2 border-quinn-400 -ml-px"
+                          : "text-gray-500 hover:text-gray-300"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </nav>
@@ -157,6 +214,14 @@ export default function App() {
               <div className="flex items-center gap-1">
                 <span className={`w-1.5 h-1.5 rounded-full ${snapshotMeta.snapshots?.gong?.status === "ok" ? "bg-emerald-400" : "bg-gray-600"}`} />
                 Gong {snapshotMeta.snapshots?.gong?.status === "skipped" ? "not configured" : snapshotMeta.snapshots?.gong?.ran_at?.slice(0, 10) || "—"}
+              </div>
+              <div className="flex items-center gap-1">
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  snapshotMeta.snapshots?.quinn?.status === "ok" ? "bg-emerald-400" :
+                  snapshotMeta.snapshots?.quinn?.status === "skipped" ? "bg-gray-700" : "bg-amber-400"
+                }`} />
+                Quinn {snapshotMeta.snapshots?.quinn?.status === "skipped" ? "needs token" :
+                       snapshotMeta.snapshots?.quinn?.ran_at?.slice(0, 10) || "—"}
               </div>
             </div>
           ) : (
@@ -228,7 +293,11 @@ export default function App() {
 
             {/* ── CUSTOMER SUCCESS ── */}
             {tab === "cs" && (
-              <CustomerTable />
+              <div className="space-y-10">
+                <section id="cs-adoption"><AdoptionMetrics /></section>
+                <section id="cs-customers"><CustomerTable /></section>
+                <section id="cs-retention"><CustomerHealth /></section>
+              </div>
             )}
 
           </div>

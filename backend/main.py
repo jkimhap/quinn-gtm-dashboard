@@ -40,7 +40,7 @@ def _run_snapshots():
     if not _refresh_lock.acquire(blocking=False):
         return  # already running
     try:
-        for script in ["snapshot_hubspot.py", "snapshot_gong.py"]:
+        for script in ["snapshot_hubspot.py", "snapshot_gong.py", "snapshot_quinn.py"]:
             subprocess.run(
                 [sys.executable, os.path.join(_backend_dir, script)],
                 cwd=_backend_dir,
@@ -1418,6 +1418,62 @@ def gtm_deals(
     """, tuple(params))
 
     return {"data": rows, "count": len(rows)}
+
+
+# ── /api/cs/adoption ───────────────────────────────────────────────────────────
+
+@app.get("/api/cs/adoption")
+def cs_adoption(search: str = Query(None)):
+    """
+    Quinn product adoption metrics for all real customers.
+    Sourced from quinn_orgs table (populated by snapshot_quinn.py).
+    """
+    rows = db.q("SELECT * FROM quinn_orgs ORDER BY progressions DESC, mau DESC, org_name ASC")
+
+    # Optional search filter
+    if search:
+        s = search.lower()
+        rows = [r for r in rows if s in (r.get("org_name") or "").lower()]
+
+    # Health classification per org
+    def health(r):
+        if r["mau"] >= 10 and r["progressions"] >= 100:
+            return "green"
+        if r["mau"] > 0 or r["progressions"] > 10:
+            return "yellow"
+        return "red"
+
+    orgs = []
+    for r in rows:
+        total = r["total_members"] or 1
+        orgs.append({
+            **r,
+            "learner_pct": round((r["unique_learners"] / total) * 100) if total > 0 else 0,
+            "health": health(r),
+            "features": json.loads(r["features"] or "[]"),
+        })
+
+    green = sum(1 for o in orgs if o["health"] == "green")
+    yellow = sum(1 for o in orgs if o["health"] == "yellow")
+    red = sum(1 for o in orgs if o["health"] == "red")
+
+    meta = db.q1("SELECT ran_at, status, rows_written, error FROM snapshot_meta WHERE source='quinn'")
+
+    return {
+        "summary": {
+            "total_orgs":     len(orgs),
+            "total_mau":      sum(o["mau"] for o in orgs),
+            "total_wau":      sum(o["wau"] for o in orgs),
+            "total_members":  sum(o["total_members"] for o in orgs),
+            "total_progressions": sum(o["progressions"] for o in orgs),
+            "hris_connected": sum(o["hris_connected"] for o in orgs),
+            "green_count":    green,
+            "yellow_count":   yellow,
+            "red_count":      red,
+        },
+        "orgs": orgs,
+        "meta": meta,
+    }
 
 
 # ── Serve built frontend (production) ──────────────────────────────────────────
