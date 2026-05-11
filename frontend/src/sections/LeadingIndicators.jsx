@@ -10,7 +10,7 @@ function Metric({ label, value, sub, unavailable }) {
       <div className="text-xs text-gray-500">{label}</div>
       {unavailable
         ? <span className="unavailable">⚠ no data</span>
-        : <div className="text-base font-bold text-white tabular-nums">{value ?? "—"}</div>
+        : <div className="text-base font-bold text-gray-50 tabular-nums">{value ?? "—"}</div>
       }
       {sub && !unavailable && <div className="text-xs text-gray-600">{sub}</div>}
     </div>
@@ -32,7 +32,7 @@ export default function LeadingIndicators() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-white">Leading Indicators</h2>
+          <h2 className="text-lg font-serif font-medium text-gray-50 tracking-tight">Leading Indicators</h2>
           <p className="text-xs text-gray-500 mt-0.5">Last 30 days · meetings from Gong · opps from HubSpot</p>
         </div>
         {data && !gongAvailable && (
@@ -40,7 +40,7 @@ export default function LeadingIndicators() {
         )}
       </div>
 
-      {err && <div className="text-red-400 text-sm mb-3">Error: {err.message}</div>}
+      {err && <div className="text-red-500 text-sm mb-3">Error: {err.message}</div>}
 
       {!data ? (
         <div className="text-gray-600 text-sm">Loading…</div>

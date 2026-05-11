@@ -12,22 +12,22 @@ const BUCKET_LABEL = {
 };
 
 const BUCKET_COLOR = {
-  early: "text-blue-400",
+  early: "text-blue-600",
   mid: "text-purple-400",
-  late: "text-amber-400",
-  closed_won: "text-emerald-400",
-  closed_lost: "text-red-400",
+  late: "text-amber-600",
+  closed_won: "text-emerald-600",
+  closed_lost: "text-red-500",
   unknown: "text-gray-500",
 };
 
 const TIER_COLOR = {
   // New naming
-  "T1": "text-emerald-400", "T2": "text-blue-400",
-  "T3": "text-amber-400", "T4": "text-gray-500",
+  "T1": "text-emerald-600", "T2": "text-blue-600",
+  "T3": "text-amber-600", "T4": "text-gray-500",
   // Legacy fallback (old DB rows)
-  "1A": "text-emerald-400", "1B": "text-emerald-300",
-  "2A": "text-blue-400", "2B": "text-blue-300",
-  "3": "text-amber-400",
+  "1A": "text-emerald-600", "1B": "text-emerald-700",
+  "2A": "text-blue-600", "2B": "text-blue-600",
+  "3": "text-amber-600",
 };
 
 const TIER_DISPLAY = {
@@ -51,7 +51,7 @@ export default function DealSummary() {
       .catch(setErr);
   }, []);
 
-  if (err) return <div className="card text-red-400 text-sm">Failed to load deals: {err.message}</div>;
+  if (err) return <div className="card text-red-500 text-sm">Failed to load deals: {err.message}</div>;
 
   const allRows = data?.data || [];
 
@@ -69,7 +69,7 @@ export default function DealSummary() {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-lg font-semibold text-white">Deal Summary</h2>
+        <h2 className="text-lg font-serif font-medium text-gray-50 tracking-tight">Deal Summary</h2>
         <div className="flex items-center gap-1">
           {[
             { key: "open", label: `Open (${openCount})` },
@@ -80,7 +80,7 @@ export default function DealSummary() {
               key={key}
               onClick={() => setFilter(key)}
               className={`text-xs px-2 py-1 rounded transition-colors ${
-                filter === key ? "bg-quinn-700 text-white" : "text-gray-500 hover:text-gray-300"
+                filter === key ? "bg-gray-100 text-gray-50" : "text-gray-500 hover:text-gray-300"
               }`}
             >
               {label}
@@ -145,7 +145,7 @@ export default function DealSummary() {
                   </td>
                   <td className="py-1.5 text-right text-gray-400">
                     {r.is_closed_won
-                      ? <span className="text-emerald-400">{fmt_date(r.closed_won_date)}</span>
+                      ? <span className="text-emerald-600">{fmt_date(r.closed_won_date)}</span>
                       : fmt_date(r.close_date)}
                   </td>
                 </tr>

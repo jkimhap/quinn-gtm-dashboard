@@ -42,14 +42,14 @@ export default function MultiLocationExpansion() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-white">Multi-Location Expansion</h2>
+          <h2 className="text-lg font-serif font-medium text-gray-50 tracking-tight">Multi-Location Expansion</h2>
           <p className="text-xs text-gray-500 mt-0.5">
             Customers with multiple locations — sort by Whitespace to find fastest upsell candidates
           </p>
         </div>
       </div>
 
-      {err && <div className="text-red-400 text-sm mb-3">Error: {err.message}</div>}
+      {err && <div className="text-red-500 text-sm mb-3">Error: {err.message}</div>}
 
       {data && !data.data_available && (
         <div className="card text-center py-8">
@@ -68,7 +68,7 @@ export default function MultiLocationExpansion() {
                 {COLS.map(col => (
                   <th key={col.key}
                     onClick={() => handleSort(col.key)}
-                    className={`px-3 py-2.5 text-left text-xs font-medium cursor-pointer select-none whitespace-nowrap hover:text-gray-200 ${sort.key === col.key ? "text-quinn-300" : "text-gray-400"}`}>
+                    className={`px-3 py-2.5 text-left text-xs font-medium cursor-pointer select-none whitespace-nowrap hover:text-gray-200 ${sort.key === col.key ? "text-quinn-600" : "text-gray-400"}`}>
                     {col.label}
                     {sort.key === col.key && <span className="ml-1">{sort.dir === "asc" ? "↑" : "↓"}</span>}
                   </th>
@@ -78,16 +78,16 @@ export default function MultiLocationExpansion() {
             <tbody>
               {rows.map((row, i) => (
                 <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/20">
-                  <td className="px-3 py-2.5 font-medium text-white">{row.company}</td>
+                  <td className="px-3 py-2.5 font-medium text-gray-50">{row.company}</td>
                   <td className="px-3 py-2.5 text-gray-400">{row.vertical || "—"}</td>
                   <td className="px-3 py-2.5 text-gray-300 tabular-nums text-right">{row.total_locations ?? "—"}</td>
                   <td className="px-3 py-2.5 text-gray-300 tabular-nums text-right">{row.sold_to_locations ?? "—"}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">
-                    <span className={`font-semibold ${(row.whitespace || 0) > 5 ? "text-emerald-400" : (row.whitespace || 0) > 2 ? "text-amber-300" : "text-gray-400"}`}>
+                    <span className={`font-semibold ${(row.whitespace || 0) > 5 ? "text-emerald-600" : (row.whitespace || 0) > 2 ? "text-amber-600" : "text-gray-400"}`}>
                       {row.whitespace ?? "—"}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-white font-medium tabular-nums text-right">
+                  <td className="px-3 py-2.5 text-gray-50 font-medium tabular-nums text-right">
                     {row.arr ? fmt$(row.arr, { compact: true }) : "—"}
                   </td>
                   <td className="px-3 py-2.5 text-gray-400">{row.owner || "—"}</td>

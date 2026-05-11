@@ -12,8 +12,8 @@ const REP_LABELS = { arlen: "Arlen Marmel", derek: "Derek Goldberg", grant: "Gra
 const REP_SHORT  = { arlen: "Arlen", derek: "Derek", grant: "Grant" };
 
 const ttStyle = {
-  background: "#111827",
-  border: "1px solid #374151",
+  background: "#ffffff",
+  border: "1px solid #e4ddd5",
   borderRadius: 8,
   fontSize: 12,
   padding: 0,
@@ -24,7 +24,7 @@ function StatCard({ label, value, sub }) {
   return (
     <div className="bg-gray-800/50 rounded-lg p-3 flex flex-col gap-1">
       <div className="text-xs text-gray-500">{label}</div>
-      <div className="text-lg font-bold text-white tabular-nums">{value}</div>
+      <div className="text-lg font-bold text-gray-50 tabular-nums">{value}</div>
       {sub && <div className="text-xs text-gray-500">{sub}</div>}
     </div>
   );
@@ -44,7 +44,7 @@ function PipelineSummary({ data }) {
           <div key={b.key} className="flex items-center gap-1.5 text-xs">
             <div className="w-2.5 h-2.5 rounded-full" style={{ background: b.color }} />
             <span className="text-gray-400">{b.label}:</span>
-            <span className="text-white font-medium">{fmt$(data?.[b.key]?.amount || 0, { compact: true })}</span>
+            <span className="text-gray-50 font-medium">{fmt$(data?.[b.key]?.amount || 0, { compact: true })}</span>
             <span className="text-gray-600">({data?.[b.key]?.count || 0})</span>
           </div>
         ))}
@@ -66,7 +66,7 @@ function makeRepDrillTooltip(dealsByMonth) {
     return (
       <div style={{ ...ttStyle, minWidth: 190, maxWidth: 270 }}>
         <div className="px-3 py-2 border-b border-gray-800">
-          <div className="text-xs font-semibold text-white">{label}</div>
+          <div className="text-xs font-semibold text-gray-50">{label}</div>
           {total > 0 && (
             <div className="text-xs text-gray-400 mt-0.5">
               {fmt$(total, { compact: true })}
@@ -112,7 +112,7 @@ function makeCompareDrillTooltip(allPerf) {
     return (
       <div style={{ ...ttStyle, minWidth: 220, maxWidth: 300 }}>
         <div className="px-3 py-2 border-b border-gray-800">
-          <div className="text-xs font-semibold text-white">{label}</div>
+          <div className="text-xs font-semibold text-gray-50">{label}</div>
         </div>
         {repEntries.map((p) => {
           const slug = p.dataKey;
@@ -124,7 +124,7 @@ function makeCompareDrillTooltip(allPerf) {
                   <div className="w-2 h-2 rounded-full" style={{ background: p.stroke }} />
                   <span className="font-medium text-gray-300">{REP_SHORT[slug] || slug}</span>
                 </div>
-                <span className="text-xs text-white tabular-nums">{fmt$(p.value, { compact: true })}</span>
+                <span className="text-xs text-gray-50 tabular-nums">{fmt$(p.value, { compact: true })}</span>
               </div>
               {repDeals.length > 0 && (
                 <div className="space-y-0.5 pl-3.5">
@@ -163,9 +163,9 @@ function AEView({ slug, perf }) {
         <div className="text-xs text-gray-400 mb-3">New TCV Closed per Month — hover a bar to see individual deals</div>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={(perf.monthly_arr || []).slice(-12)} margin={{ top: 20, right: 4, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-            <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={v => fmt$(v, { compact: true })} tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} width={52} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e4ddd5" />
+            <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#9e9890" }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={v => fmt$(v, { compact: true })} tick={{ fontSize: 10, fill: "#9e9890" }} axisLine={false} tickLine={false} width={52} />
             <Tooltip content={<DrillTooltip />} />
             <Bar dataKey="value" name="TCV" fill={color} radius={[3,3,0,0]}>
               <LabelList dataKey="value" position="top" style={{ fontSize: 9, fill: "#9ca3af" }}
@@ -197,9 +197,9 @@ function CompareView({ allPerf }) {
         <div className="text-xs text-gray-400 mb-3">New TCV Closed per Month — All AEs · hover to see each rep's deals</div>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-            <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={v => fmt$(v, { compact: true })} tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} width={52} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e4ddd5" />
+            <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#9e9890" }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={v => fmt$(v, { compact: true })} tick={{ fontSize: 10, fill: "#9e9890" }} axisLine={false} tickLine={false} width={52} />
             <Tooltip content={<CompareDrillTooltip />} />
             <Legend wrapperStyle={{ fontSize: 11 }} formatter={s => REP_SHORT[s] || s} />
             {AE_SLUGS.map(s => (
@@ -216,11 +216,11 @@ function CompareView({ allPerf }) {
             <div key={s} className="card" style={{ borderColor: (REP_COLORS[s] || "#374151") + "55" }}>
               <div className="text-sm font-semibold mb-3" style={{ color: REP_COLORS[s] }}>{REP_LABELS[s]}</div>
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between"><span className="text-gray-500">TCV Closed (12mo)</span><span className="text-white">{fmt$(p?.summary?.total_tcv_closed, { compact: true })}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Deals Closed</span><span className="text-white">{p?.summary?.total_deals_closed ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Win Rate (90d)</span><span className="text-white">{fmtPct(p?.summary?.win_rate_90d_pct)}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Avg Cycle</span><span className="text-white">{fmtDays(p?.summary?.avg_cycle_days)}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Avg ACV</span><span className="text-white">{fmt$(p?.summary?.avg_acv, { compact: true })}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">TCV Closed (12mo)</span><span className="text-gray-50">{fmt$(p?.summary?.total_tcv_closed, { compact: true })}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Deals Closed</span><span className="text-gray-50">{p?.summary?.total_deals_closed ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Win Rate (90d)</span><span className="text-gray-50">{fmtPct(p?.summary?.win_rate_90d_pct)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Avg Cycle</span><span className="text-gray-50">{fmtDays(p?.summary?.avg_cycle_days)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Avg ACV</span><span className="text-gray-50">{fmt$(p?.summary?.avg_acv, { compact: true })}</span></div>
               </div>
             </div>
           );
@@ -244,19 +244,19 @@ export default function PerRepPerformance() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-4">Rep Performance</h2>
+      <h2 className="text-lg font-serif font-medium text-gray-50 tracking-tight mb-4">Rep Performance</h2>
       <div className="flex gap-1 mb-5 border-b border-gray-800">
         {TABS.map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key)}
             className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              activeTab === t.key ? "text-quinn-300 border-quinn-400" : "text-gray-400 border-transparent hover:text-gray-200"
+              activeTab === t.key ? "text-quinn-600 border-quinn-400" : "text-gray-400 border-transparent hover:text-gray-200"
             }`}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {err && <div className="text-red-400 text-sm mb-3">Error: {err.message}</div>}
+      {err && <div className="text-red-500 text-sm mb-3">Error: {err.message}</div>}
       {!allPerf && !err && <div className="text-gray-600 text-sm">Loading…</div>}
 
       {allPerf && (

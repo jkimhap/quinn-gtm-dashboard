@@ -3,9 +3,9 @@ import { api } from "../lib/api";
 import { fmt$ } from "../lib/format";
 
 const TIER_COLOR = {
-  T1: "text-emerald-400 bg-emerald-400/10 border-emerald-400/30",
-  T2: "text-blue-400 bg-blue-400/10 border-blue-400/30",
-  T3: "text-amber-400 bg-amber-400/10 border-amber-400/30",
+  T1: "text-emerald-600 bg-emerald-400/10 border-emerald-400/30",
+  T2: "text-blue-600 bg-blue-400/10 border-blue-400/30",
+  T3: "text-amber-600 bg-amber-400/10 border-amber-400/30",
   T4: "text-gray-500 bg-gray-700/30 border-gray-600/30",
   Other: "text-gray-500 bg-gray-700/30 border-gray-600/30",
 };
@@ -32,13 +32,13 @@ export default function IcpSummary() {
 
   useEffect(() => { api.icpSummary().then(setData).catch(setErr); }, []);
 
-  if (err) return <div className="card text-red-400 text-sm">Failed to load ICP summary: {err.message}</div>;
+  if (err) return <div className="card text-red-500 text-sm">Failed to load ICP summary: {err.message}</div>;
 
   const loading = !data;
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-1">ICP Summary</h2>
+      <h2 className="text-lg font-serif font-medium text-gray-50 tracking-tight mb-1">ICP Summary</h2>
       <p className="text-xs text-gray-500 mb-4">Market sizing from ICP tier sheet. Quinn's pipeline and customer distribution by tier.</p>
 
       {/* Market sizing table */}

@@ -4,9 +4,9 @@ import { api } from "../lib/api";
 const DAYS_OPTIONS = [30, 45, 60, 90];
 
 const TIER_COLOR = {
-  T1: "text-emerald-400",
-  T2: "text-blue-400",
-  T3: "text-amber-400",
+  T1: "text-emerald-600",
+  T2: "text-blue-600",
+  T3: "text-amber-600",
   T4: "text-gray-500",
 };
 
@@ -20,11 +20,11 @@ const STAGE_LABEL = {
 };
 
 const STAGE_COLOR = {
-  early: "text-blue-400",
+  early: "text-blue-600",
   mid: "text-purple-400",
-  late: "text-amber-400",
-  closed_won: "text-emerald-400",
-  closed_lost: "text-red-400",
+  late: "text-amber-600",
+  closed_won: "text-emerald-600",
+  closed_lost: "text-red-500",
   unknown: "text-gray-500",
 };
 
@@ -33,16 +33,16 @@ function StatusBadge({ status }) {
   const lower = (status || "").toLowerCase().replace(/_/g, " ");
   if (lower === "true" || lower === "1") {
     // Raw boolean — probably means qualified
-    return <span className="text-xs font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-1.5 py-0.5 rounded">Qualified</span>;
+    return <span className="text-xs font-semibold text-emerald-600 bg-emerald-400/10 border border-emerald-400/30 px-1.5 py-0.5 rounded">Qualified</span>;
   }
   if (lower.includes("qualif") && !lower.includes("dis") && !lower.includes("not")) {
-    return <span className="text-xs font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-1.5 py-0.5 rounded">Qualified</span>;
+    return <span className="text-xs font-semibold text-emerald-600 bg-emerald-400/10 border border-emerald-400/30 px-1.5 py-0.5 rounded">Qualified</span>;
   }
   if (lower.includes("disqual") || lower.includes("not qualif") || lower === "false" || lower === "0") {
-    return <span className="text-xs font-semibold text-red-400 bg-red-400/10 border border-red-400/30 px-1.5 py-0.5 rounded">DQ'd</span>;
+    return <span className="text-xs font-semibold text-red-500 bg-red-400/10 border border-red-400/30 px-1.5 py-0.5 rounded">DQ'd</span>;
   }
   if (lower.includes("review") || lower.includes("pending")) {
-    return <span className="text-xs font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.5 rounded">Pending</span>;
+    return <span className="text-xs font-semibold text-amber-600 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.5 rounded">Pending</span>;
   }
   // Show whatever raw value it is, truncated
   return <span className="text-xs text-gray-400">{status.slice(0, 20)}</span>;
@@ -75,14 +75,14 @@ export default function FirstCallTable() {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-lg font-semibold text-white">First Calls</h2>
+        <h2 className="text-lg font-serif font-medium text-gray-50 tracking-tight">First Calls</h2>
         <div className="flex items-center gap-1">
           {DAYS_OPTIONS.map((d) => (
             <button
               key={d}
               onClick={() => setDays(d)}
               className={`text-xs px-2 py-1 rounded transition-colors ${
-                days === d ? "bg-quinn-700 text-white" : "text-gray-500 hover:text-gray-300"
+                days === d ? "bg-gray-100 text-gray-50" : "text-gray-500 hover:text-gray-300"
               }`}
             >
               {d}d
@@ -96,7 +96,7 @@ export default function FirstCallTable() {
       </p>
 
       {bantMissing && (
-        <div className="mb-3 flex items-start gap-2 text-xs text-amber-400 bg-amber-400/5 border border-amber-400/20 rounded-lg px-3 py-2">
+        <div className="mb-3 flex items-start gap-2 text-xs text-amber-600 bg-amber-400/5 border border-amber-400/20 rounded-lg px-3 py-2">
           <span className="shrink-0 mt-0.5">⚠</span>
           <span>
             BANT scores are empty — the N8N workflow hasn't written scores for these calls yet,
@@ -114,7 +114,7 @@ export default function FirstCallTable() {
             ))}
           </div>
         )}
-        {err && <div className="text-red-400 text-sm py-2">{err}</div>}
+        {err && <div className="text-red-500 text-sm py-2">{err}</div>}
         {!loading && !err && rows.length === 0 && (
           <p className="text-xs text-gray-500 italic py-4 text-center">
             No first calls found in the last {days} days.
@@ -177,8 +177,8 @@ export default function FirstCallTable() {
                   <td className="py-1.5 pr-2 text-right">
                     {r.bant_score != null
                       ? <span className={`font-semibold tabular-nums ${
-                          r.bant_score >= 70 ? "text-emerald-400" :
-                          r.bant_score >= 50 ? "text-amber-400" : "text-red-400"
+                          r.bant_score >= 70 ? "text-emerald-600" :
+                          r.bant_score >= 50 ? "text-amber-600" : "text-red-500"
                         }`}>{r.bant_score}</span>
                       : <span className="text-gray-700">—</span>
                     }
@@ -204,7 +204,7 @@ export default function FirstCallTable() {
                         <a
                           href={`https://app.gong.io/call?id=${r.gong_id}`}
                           target="_blank" rel="noreferrer"
-                          className="text-quinn-400 hover:text-quinn-300 text-xs underline underline-offset-2"
+                          className="text-quinn-400 hover:text-quinn-600 text-xs underline underline-offset-2"
                         >
                           Gong
                         </a>
@@ -213,7 +213,7 @@ export default function FirstCallTable() {
                         <a
                           href={`https://app.hubspot.com/contacts/deals/${r.hubspot_deal_id}`}
                           target="_blank" rel="noreferrer"
-                          className="text-orange-400 hover:text-orange-300 text-xs underline underline-offset-2"
+                          className="text-orange-600 hover:text-orange-600 text-xs underline underline-offset-2"
                         >
                           HS
                         </a>

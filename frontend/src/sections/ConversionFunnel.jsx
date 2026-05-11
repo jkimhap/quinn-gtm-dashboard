@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 
 function Pct({ val }) {
   if (val == null) return <span className="text-gray-600">—</span>;
-  const color = val >= 50 ? "text-emerald-400" : val >= 25 ? "text-amber-400" : "text-red-400";
+  const color = val >= 50 ? "text-emerald-600" : val >= 25 ? "text-amber-600" : "text-red-500";
   return <span className={`${color} tabular-nums`}>{val}%</span>;
 }
 
@@ -13,13 +13,13 @@ export default function ConversionFunnel() {
 
   useEffect(() => { api.conversionFunnel().then(setData).catch(setErr); }, []);
 
-  if (err) return <div className="card text-red-400 text-sm">Failed to load funnel: {err.message}</div>;
+  if (err) return <div className="card text-red-500 text-sm">Failed to load funnel: {err.message}</div>;
 
   const rows = data?.data || [];
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-1">Conversion Funnel</h2>
+      <h2 className="text-lg font-serif font-medium text-gray-50 tracking-tight mb-1">Conversion Funnel</h2>
       <p className="text-xs text-gray-500 mb-4">
         Deals created each month and how far they've progressed. Percentages are cumulative (e.g. % won = won ÷ created).
       </p>
@@ -30,13 +30,13 @@ export default function ConversionFunnel() {
               <th className="text-left pb-2 pr-4">Month</th>
               <th className="text-right pb-2 pr-4">Created</th>
               <th className="text-right pb-2 pr-4">
-                <span className="text-blue-400">Discovery</span>
+                <span className="text-blue-600">Discovery</span>
               </th>
               <th className="text-right pb-2 pr-4">
                 <span className="text-purple-400">Demo / Quote</span>
               </th>
               <th className="text-right pb-2">
-                <span className="text-emerald-400">Closed Won</span>
+                <span className="text-emerald-600">Closed Won</span>
               </th>
             </tr>
           </thead>

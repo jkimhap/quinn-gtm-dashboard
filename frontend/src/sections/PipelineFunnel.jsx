@@ -53,11 +53,11 @@ export default function PipelineFunnel() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-white">Pipeline Funnel</h2>
+        <h2 className="text-lg font-serif font-medium text-gray-50 tracking-tight">Pipeline Funnel</h2>
         <div className="flex items-center gap-3">
           {data && (
             <span className="text-xs text-gray-500">
-              Win rate (90d): <span className="text-white font-medium">{fmtPct(data.win_rate_90d_pct)}</span>
+              Win rate (90d): <span className="text-gray-50 font-medium">{fmtPct(data.win_rate_90d_pct)}</span>
             </span>
           )}
           <select value={rep} onChange={e => setRep(e.target.value)}
@@ -67,7 +67,7 @@ export default function PipelineFunnel() {
         </div>
       </div>
 
-      {err && <div className="text-red-400 text-sm mb-3">Error: {err.message}</div>}
+      {err && <div className="text-red-500 text-sm mb-3">Error: {err.message}</div>}
 
       {!data ? (
         <div className="text-gray-600 text-sm">Loading…</div>
@@ -86,15 +86,15 @@ export default function PipelineFunnel() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-3 h-3 rounded-full" style={{ background: color }} />
-                    <span className="font-medium text-white">{BUCKET_LABELS[stage.bucket]}</span>
+                    <span className="font-medium text-gray-50">{BUCKET_LABELS[stage.bucket]}</span>
                     {stage.stale_count > 0 && (
-                      <span className="badge bg-amber-900/50 text-amber-300 border border-amber-800">
+                      <span className="badge bg-amber-900/50 text-amber-600 border border-amber-800">
                         {stage.stale_count} stale
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-6 text-sm">
-                    <span className="text-white font-semibold tabular-nums">{fmt$(stage.amount, { compact: true })}</span>
+                    <span className="text-gray-50 font-semibold tabular-nums">{fmt$(stage.amount, { compact: true })}</span>
                     <span className="text-gray-400 tabular-nums">{stage.count} deals</span>
                     <span className="text-gray-500 tabular-nums text-xs">
                       avg {stage.avg_days_in_stage != null ? `${stage.avg_days_in_stage}d` : "—"} in stage
@@ -120,7 +120,7 @@ export default function PipelineFunnel() {
           <div className="card bg-gray-800/40">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-400">Total Open Pipeline</span>
-              <span className="text-white font-bold tabular-nums text-lg">{fmt$(totalAmt, { compact: true })}</span>
+              <span className="text-gray-50 font-bold tabular-nums text-lg">{fmt$(totalAmt, { compact: true })}</span>
             </div>
             <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
               <span>{data.open_deal_count} open deals</span>

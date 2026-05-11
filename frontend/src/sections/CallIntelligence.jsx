@@ -40,7 +40,7 @@ function TranscriptPanel({ gongId, onClose }) {
         {/* Header */}
         <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-start justify-between gap-4">
           <div>
-            <div className="text-white font-semibold text-sm">{data?.title || "Loading…"}</div>
+            <div className="text-gray-50 font-semibold text-sm">{data?.title || "Loading…"}</div>
             {data && (
               <div className="text-xs text-gray-500 mt-0.5">
                 {fmtDate(data.started_at)} · {fmtDuration(data.duration_secs)} · {REP_LABELS[data.rep_slug] || data.rep_slug || "—"}
@@ -48,7 +48,7 @@ function TranscriptPanel({ gongId, onClose }) {
               </div>
             )}
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg shrink-0 mt-0.5">✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-50 text-lg shrink-0 mt-0.5">✕</button>
         </div>
 
         {/* Body */}
@@ -77,7 +77,7 @@ function CallRow({ call, onSelect }) {
       className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors cursor-pointer"
       onClick={() => call.has_transcript && onSelect(call.gong_id)}
     >
-      <td className="px-3 py-2.5 text-white text-sm max-w-xs truncate">
+      <td className="px-3 py-2.5 text-gray-50 text-sm max-w-xs truncate">
         {call.title || "—"}
       </td>
       <td className="px-3 py-2.5 text-gray-400 text-sm whitespace-nowrap">
@@ -132,7 +132,7 @@ export default function CallIntelligence() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-white">Call Intelligence</h2>
+          <h2 className="text-lg font-serif font-medium text-gray-50 tracking-tight">Call Intelligence</h2>
           <p className="text-xs text-gray-500 mt-0.5">Gong call transcripts · last 180 days</p>
         </div>
         {data && (
@@ -140,7 +140,7 @@ export default function CallIntelligence() {
         )}
       </div>
 
-      {err && <div className="text-red-400 text-sm mb-3">Error: {err.message}</div>}
+      {err && <div className="text-red-500 text-sm mb-3">Error: {err.message}</div>}
 
       {/* Filters */}
       <form onSubmit={handleSearch} className="flex flex-wrap gap-2 mb-4">
@@ -149,10 +149,10 @@ export default function CallIntelligence() {
           placeholder="Search call titles…"
           value={inputVal}
           onChange={e => setInputVal(e.target.value)}
-          className="bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 rounded px-3 py-1.5 w-56 focus:outline-none focus:border-quinn-500"
+          className="bg-gray-800 border border-gray-700 text-sm text-gray-50 placeholder-gray-500 rounded px-3 py-1.5 w-56 focus:outline-none focus:border-quinn-500"
         />
         <button type="submit"
-          className="text-xs px-3 py-1.5 bg-quinn-700 hover:bg-quinn-600 text-white rounded transition-colors">
+          className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-quinn-600 text-gray-50 rounded transition-colors">
           Search
         </button>
         <select value={filterRep} onChange={e => handleRepChange(e.target.value)}

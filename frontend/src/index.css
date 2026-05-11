@@ -9,34 +9,74 @@
   body {
     font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    background-color: #f8f4ef;
+    color: #1a1714;
   }
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #111827;
+    background: #f0ebe4;
   }
   ::-webkit-scrollbar-thumb {
-    background: #374151;
+    background: #d5cec5;
     border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #bdb5ac;
   }
 }
 
 @layer components {
+  /* ── Card — warm white with subtle warm border ─────────────────────────── */
   .card {
-    @apply bg-gray-900 border border-gray-800 rounded-xl p-5;
+    @apply bg-white border border-gray-800 rounded-lg p-5;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
+
+  /* ── Section headings — serif editorial style ──────────────────────────── */
+  .section-heading {
+    @apply text-lg font-serif font-medium text-gray-50 mb-4 tracking-tight;
+  }
+
+  /* ── KPI label — all-caps micro label ─────────────────────────────────── */
+  .kpi-label {
+    @apply text-[10px] font-medium uppercase tracking-widest text-gray-500;
+  }
+
+  /* ── Badges ─────────────────────────────────────────────────────────────── */
   .badge {
     @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
   }
-  .badge-1a { @apply bg-emerald-900/50 text-emerald-300 border border-emerald-800; }
-  .badge-1b { @apply bg-teal-900/50 text-teal-300 border border-teal-800; }
-  .badge-2a { @apply bg-blue-900/50 text-blue-300 border border-blue-800; }
-  .badge-2b { @apply bg-gray-800 text-gray-400 border border-gray-700; }
-  .badge-3  { @apply bg-orange-900/50 text-orange-300 border border-orange-800; }
-  .badge-active   { @apply bg-emerald-900/50 text-emerald-300 border border-emerald-800; }
-  .badge-at-risk  { @apply bg-amber-900/50 text-amber-300 border border-amber-800; }
-  .badge-churned  { @apply bg-red-900/50 text-red-300 border border-red-800; }
-  .unavailable { @apply inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded border border-gray-700; }
+  /* Tier badges */
+  .badge-1a { @apply bg-quinn-50 text-quinn-700 border border-quinn-200; }
+  .badge-1b { @apply bg-quinn-50 text-quinn-600 border border-quinn-200; }
+  .badge-2a { @apply bg-blue-50 text-blue-700 border border-blue-200; }
+  .badge-2b { @apply bg-gray-900 text-gray-400 border border-gray-800; }
+  .badge-3  { @apply bg-orange-50 text-orange-700 border border-orange-200; }
+  /* Status badges */
+  .badge-active   { @apply bg-quinn-50 text-quinn-700 border border-quinn-200; }
+  .badge-at-risk  { @apply bg-amber-50 text-amber-700 border border-amber-200; }
+  .badge-churned  { @apply bg-rose-50 text-rose-700 border border-rose-200; }
+
+  /* ── Unavailable / placeholder ────────────────────────────────────────── */
+  .unavailable {
+    @apply inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-900 px-2 py-0.5 rounded border border-gray-800;
+  }
+
+  /* ── Filter chip buttons ──────────────────────────────────────────────── */
+  .filter-chip {
+    @apply px-3 py-1 rounded-full text-xs font-medium border transition-colors;
+    @apply border-gray-800 text-gray-400 hover:border-gray-600 hover:text-gray-200;
+  }
+  .filter-chip-active {
+    @apply px-3 py-1 rounded-full text-xs font-medium border transition-colors;
+    @apply bg-gray-100 border-gray-100 text-white;
+  }
+
+  /* ── Data table rows ─────────────────────────────────────────────────── */
+  .table-row-hover {
+    @apply hover:bg-gray-900/50 transition-colors;
+  }
 }

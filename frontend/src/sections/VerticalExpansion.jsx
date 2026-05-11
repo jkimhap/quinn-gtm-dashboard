@@ -69,14 +69,14 @@ export default function VerticalExpansion() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-white">Vertical / ICP Expansion</h2>
+          <h2 className="text-lg font-serif font-medium text-gray-50 tracking-tight">Vertical / ICP Expansion</h2>
           <p className="text-xs text-gray-500 mt-0.5">
             Green = above-avg win rate or cycle. Red = dragging performance vs. benchmark.
           </p>
         </div>
       </div>
 
-      {err && <div className="text-red-400 text-sm mb-3">Error: {err.message}</div>}
+      {err && <div className="text-red-500 text-sm mb-3">Error: {err.message}</div>}
 
       <div className="overflow-x-auto rounded-xl border border-gray-800">
         <table className="w-full text-sm">
@@ -85,7 +85,7 @@ export default function VerticalExpansion() {
               {COLS.map(col => (
                 <th key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className={`px-3 py-2.5 text-left text-xs font-medium cursor-pointer select-none whitespace-nowrap hover:text-gray-200 ${sortKey === col.key ? "text-quinn-300" : "text-gray-400"}`}>
+                  className={`px-3 py-2.5 text-left text-xs font-medium cursor-pointer select-none whitespace-nowrap hover:text-gray-200 ${sortKey === col.key ? "text-quinn-600" : "text-gray-400"}`}>
                   {col.label}
                   {sortKey === col.key && <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>}
                 </th>
@@ -103,23 +103,23 @@ export default function VerticalExpansion() {
               return (
                 <tr key={row.vertical}
                   className={`border-b border-gray-800/50 transition-colors ${isHighlighted ? "bg-gray-800/20" : "hover:bg-gray-800/20"}`}>
-                  <td className="px-3 py-2.5 font-medium text-white">{row.vertical}</td>
+                  <td className="px-3 py-2.5 font-medium text-gray-50">{row.vertical}</td>
                   <td className="px-3 py-2.5">
                     {row.tier && TIER_META[row.tier]
                       ? <span title={TIER_META[row.tier].desc} className={TIER_META[row.tier].cls}>{row.tier}</span>
                       : <span className="text-gray-600">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-gray-300 tabular-nums text-right">{row.customers}</td>
-                  <td className="px-3 py-2.5 text-white tabular-nums text-right font-medium">
+                  <td className="px-3 py-2.5 text-gray-50 tabular-nums text-right font-medium">
                     {row.total_arr ? fmt$(row.total_arr, { compact: true }) : "—"}
                   </td>
                   <td className="px-3 py-2.5 text-gray-300 tabular-nums text-right">
                     {row.avg_acv ? fmt$(row.avg_acv, { compact: true }) : "—"}
                   </td>
-                  <td className={`px-3 py-2.5 tabular-nums text-right font-medium ${winAbove ? "text-emerald-400" : winBelow ? "text-red-400" : "text-gray-300"}`}>
+                  <td className={`px-3 py-2.5 tabular-nums text-right font-medium ${winAbove ? "text-emerald-600" : winBelow ? "text-red-500" : "text-gray-300"}`}>
                     {row.win_rate_pct != null ? fmtPct(row.win_rate_pct) : "—"}
                   </td>
-                  <td className={`px-3 py-2.5 tabular-nums text-right ${cycleAbove ? "text-amber-400" : "text-gray-300"}`}>
+                  <td className={`px-3 py-2.5 tabular-nums text-right ${cycleAbove ? "text-amber-600" : "text-gray-300"}`}>
                     {row.avg_cycle_days != null ? fmtDays(row.avg_cycle_days) : "—"}
                   </td>
                 </tr>

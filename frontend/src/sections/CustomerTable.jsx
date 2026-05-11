@@ -31,10 +31,10 @@ function CompanyCallsModal({ company, onClose }) {
         onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
           <div>
-            <div className="text-white font-semibold">{company}</div>
+            <div className="text-gray-50 font-semibold">{company}</div>
             <div className="text-xs text-gray-500 mt-0.5">Gong call history</div>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg">✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-50 text-lg">✕</button>
         </div>
 
         {!data ? (
@@ -45,7 +45,7 @@ function CompanyCallsModal({ company, onClose }) {
           <div className="flex flex-col flex-1">
             <div className="px-6 py-3 border-b border-gray-800 flex items-center gap-3">
               <button onClick={() => { setActiveId(null); setTranscript(null); }}
-                className="text-xs text-gray-400 hover:text-white">← Back to calls</button>
+                className="text-xs text-gray-400 hover:text-gray-50">← Back to calls</button>
               {transcript && (
                 <span className="text-xs text-gray-500">{transcript.title} · {fmtDate(transcript.started_at)}</span>
               )}
@@ -71,7 +71,7 @@ function CompanyCallsModal({ company, onClose }) {
               <div key={call.gong_id}
                 className={`px-6 py-3 border-b border-gray-800/50 ${call.has_transcript ? "hover:bg-gray-800/30 cursor-pointer" : "opacity-50"}`}
                 onClick={() => call.has_transcript && openTranscript(call.gong_id)}>
-                <div className="text-sm text-white">{call.title}</div>
+                <div className="text-sm text-gray-50">{call.title}</div>
                 <div className="text-xs text-gray-500 mt-0.5">
                   {new Date((call.started_at || "").replace(" ", "T")).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   {" · "}{fmtDuration(call.duration_secs)}
@@ -89,16 +89,16 @@ function CompanyCallsModal({ company, onClose }) {
 
 const TIER_META = {
   // Current naming (T1-T4)
-  "T1": { cls: "badge border border-emerald-700 text-emerald-400 bg-emerald-900/30", label: "T1" },
-  "T2": { cls: "badge border border-blue-700 text-blue-400 bg-blue-900/30",          label: "T2" },
-  "T3": { cls: "badge border border-amber-700 text-amber-400 bg-amber-900/30",       label: "T3" },
+  "T1": { cls: "badge border border-emerald-700 text-emerald-600 bg-emerald-900/30", label: "T1" },
+  "T2": { cls: "badge border border-blue-700 text-blue-600 bg-blue-900/30",          label: "T2" },
+  "T3": { cls: "badge border border-amber-700 text-amber-600 bg-amber-900/30",       label: "T3" },
   "T4": { cls: "badge border border-gray-700 text-gray-500 bg-gray-800/40",          label: "T4" },
   // Legacy fallback (old DB rows not yet refreshed)
-  "1A": { cls: "badge border border-emerald-700 text-emerald-400 bg-emerald-900/30", label: "T1" },
-  "1B": { cls: "badge border border-emerald-700 text-emerald-400 bg-emerald-900/30", label: "T1" },
-  "2A": { cls: "badge border border-blue-700 text-blue-400 bg-blue-900/30",          label: "T2" },
-  "2B": { cls: "badge border border-amber-700 text-amber-400 bg-amber-900/30",       label: "T3" },
-  "3":  { cls: "badge border border-amber-700 text-amber-400 bg-amber-900/30",       label: "T3" },
+  "1A": { cls: "badge border border-emerald-700 text-emerald-600 bg-emerald-900/30", label: "T1" },
+  "1B": { cls: "badge border border-emerald-700 text-emerald-600 bg-emerald-900/30", label: "T1" },
+  "2A": { cls: "badge border border-blue-700 text-blue-600 bg-blue-900/30",          label: "T2" },
+  "2B": { cls: "badge border border-amber-700 text-amber-600 bg-amber-900/30",       label: "T3" },
+  "3":  { cls: "badge border border-amber-700 text-amber-600 bg-amber-900/30",       label: "T3" },
 };
 
 const STATUS_META = {
@@ -183,7 +183,7 @@ export default function CustomerTable() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-white">Customer Master</h2>
+        <h2 className="text-lg font-serif font-medium text-gray-50 tracking-tight">Customer Master</h2>
         <div className="flex items-center gap-2">
           {data?.data && (
             <span className="text-xs text-gray-500">{rows.length} customers</span>
@@ -202,7 +202,7 @@ export default function CustomerTable() {
           placeholder="Search company…"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 rounded px-3 py-1.5 w-48 focus:outline-none focus:border-quinn-500"
+          className="bg-gray-800 border border-gray-700 text-sm text-gray-50 placeholder-gray-500 rounded px-3 py-1.5 w-48 focus:outline-none focus:border-quinn-500"
         />
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
           className="bg-gray-800 border border-gray-700 text-sm text-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-quinn-500">
@@ -242,7 +242,7 @@ export default function CustomerTable() {
         <span><span className="badge badge-churned mr-1">Churned</span>contract end date passed</span>
       </div>
 
-      {err && <div className="text-red-400 text-sm mb-3">Error: {err.message}</div>}
+      {err && <div className="text-red-500 text-sm mb-3">Error: {err.message}</div>}
 
       <div className="overflow-x-auto rounded-xl border border-gray-800">
         <table className="w-full text-sm">
@@ -251,7 +251,7 @@ export default function CustomerTable() {
               {COLS.map(col => (
                 <th key={col.key}
                   onClick={col.sortable ? () => handleSort(col.key) : undefined}
-                  className={`px-3 py-2.5 text-left text-xs font-medium text-gray-400 whitespace-nowrap ${col.sortable ? "cursor-pointer select-none hover:text-gray-200" : ""} ${sortKey === col.key ? "text-quinn-300" : ""}`}>
+                  className={`px-3 py-2.5 text-left text-xs font-medium text-gray-400 whitespace-nowrap ${col.sortable ? "cursor-pointer select-none hover:text-gray-200" : ""} ${sortKey === col.key ? "text-quinn-600" : ""}`}>
                   {col.label}
                   {col.sortable && sortKey === col.key && (
                     <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>
@@ -271,7 +271,7 @@ export default function CustomerTable() {
                 <td className="px-3 py-2.5 font-medium whitespace-nowrap max-w-[200px] truncate">
                   {row.company
                     ? <button onClick={() => setCallsCompany(row.company)}
-                        className="text-white hover:text-quinn-300 transition-colors text-left truncate w-full">
+                        className="text-gray-50 hover:text-quinn-600 transition-colors text-left truncate w-full">
                         {row.company}
                       </button>
                     : <Unavailable />}
@@ -287,10 +287,10 @@ export default function CustomerTable() {
                 <td className="px-3 py-2.5 text-gray-400 text-right tabular-nums">
                   {row.employees ? row.employees.toLocaleString() : "—"}
                 </td>
-                <td className="px-3 py-2.5 text-white text-right tabular-nums font-medium">
+                <td className="px-3 py-2.5 text-gray-50 text-right tabular-nums font-medium">
                   {row.tcv ? fmt$(row.tcv, { compact: true }) : "—"}
                 </td>
-                <td className="px-3 py-2.5 text-white text-right tabular-nums font-medium">
+                <td className="px-3 py-2.5 text-gray-50 text-right tabular-nums font-medium">
                   {row.arr ? fmt$(row.arr, { compact: true }) : <Unavailable />}
                 </td>
                 <td className="px-3 py-2.5 text-gray-400 text-right tabular-nums">
