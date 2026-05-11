@@ -391,7 +391,7 @@ def _pct_non_null(rows: list[dict], field: str) -> float:
 def trends(months: int = Query(12, ge=3, le=24)):
     since = months_ago(months)
     won = db.q(
-        "SELECT closed_won_date, arr, vertical, deal_source, owner_slug FROM deals WHERE is_closed_won=1 AND closed_won_date >= ?",
+        "SELECT closed_won_date, arr, vertical, deal_source, owner_slug, company_name, deal_name, amount FROM deals WHERE is_closed_won=1 AND closed_won_date >= ?",
         (since,)
     )
 
@@ -447,10 +447,29 @@ def trends(months: int = Query(12, ge=3, le=24)):
                               and r.get("owner_slug") == slug)
         stacked_rep_count.append(entry)
 
+    # Deal-level breakdown for tooltip drilldown
+    from collections import defaultdict as _dd
+    deals_by_month: dict = _dd(list)
+    for r in won:
+        m = (r.get("closed_won_date") or "")[:7]
+        if m:
+            label = REPS.get(r.get("owner_slug") or "", {}).get("name") or r.get("owner_slug") or "—"
+            company = r.get("company_name") or r.get("deal_name") or "Unknown"
+            deals_by_month[m].append({
+                "company": company,
+                "tcv": round(r.get("amount") or 0, 0),
+                "arr": round(r.get("arr") or 0, 0),
+                "rep": label,
+            })
+    # Sort each month's deals by TCV descending
+    for m in deals_by_month:
+        deals_by_month[m].sort(key=lambda x: x["tcv"], reverse=True)
+
     return {
         "monthly_arr": monthly_arr,
         "monthly_count": monthly_count,
         "monthly_acv": monthly_acv,
+        "deals_by_month": dict(deals_by_month),
         "stacked": {
             "by_rep": {"keys": rep_slugs, "data": stacked_rep},
             "by_rep_count": {"keys": rep_slugs, "data": stacked_rep_count},
@@ -521,6 +540,19 @@ def rep_performance(slug: str):
     meetings_last_30d = len(gong_rows)
     meetings_per_day = round(meetings_last_30d / 30, 2)
 
+    # Deal-level breakdown per month for tooltip drilldown
+    from collections import defaultdict as _dd2
+    deals_by_month_rep: dict = _dd2(list)
+    for d in won:
+        m = (d.get("closed_won_date") or "")[:7]
+        if m:
+            deals_by_month_rep[m].append({
+                "company": d.get("company_name") or d.get("deal_name") or "Unknown",
+                "tcv": round(d.get("amount") or 0, 0),
+            })
+    for m in deals_by_month_rep:
+        deals_by_month_rep[m].sort(key=lambda x: x["tcv"], reverse=True)
+
     return {
         "slug": slug,
         "name": cfg["name"],
@@ -535,6 +567,7 @@ def rep_performance(slug: str):
         },
         "monthly_arr": monthly_arr,
         "monthly_count": monthly_count,
+        "deals_by_month": dict(deals_by_month_rep),
         "pipeline_by_stage": {r["stage_bucket"]: {"amount": r["total_amt"], "count": r["cnt"]}
                                for r in pipeline},
         "sdr_metrics": sdr_metrics,
@@ -593,6 +626,14 @@ def pipeline(rep: str = Query(None)):
             "count": len(deals),
             "avg_days_in_stage": avg_days,
             "stale_count": stale,
+            "deals": sorted([
+                {
+                    "company": d["company_name"] or d["deal_name"] or "—",
+                    "amount": round(d["amount"] or 0, 0),
+                    "owner": (d["owner_name"] or "").split()[0] if d.get("owner_name") else "—",
+                }
+                for d in deals
+            ], key=lambda x: x["amount"], reverse=True),
         })
 
     # Stage-to-stage conversion (last 90 days closed deals)
