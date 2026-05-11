@@ -45,5 +45,5 @@ export const api = {
   firstCalls: (days = 45) => get("/gtm/first-calls", { days }),
   gtmDeals: (params) => get("/gtm/deals", params),
   // Customer Success
-  csAdoption: (search) => get("/cs/adoption", { search }),
+  csAdoption: () => get("/cs/adoption"),
 };

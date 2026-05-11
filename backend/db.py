@@ -153,6 +153,14 @@ CREATE TABLE IF NOT EXISTS quinn_orgs (
     updated_at          TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS quinn_trends (
+    month           TEXT PRIMARY KEY,  -- "2025-03"
+    progressions    INTEGER DEFAULT 0,
+    activated_orgs  INTEGER DEFAULT 0,
+    active_orgs     INTEGER DEFAULT 0,
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS snapshot_meta (
     source      TEXT PRIMARY KEY,  -- "hubspot" | "gong" | "quinn"
     ran_at      TEXT,
@@ -174,6 +182,7 @@ CREATE INDEX IF NOT EXISTS idx_contacts_company    ON hs_contacts(company_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_gong_status ON hs_contacts(gong_call_status);
 CREATE INDEX IF NOT EXISTS idx_quinn_orgs_name      ON quinn_orgs(org_name);
 CREATE INDEX IF NOT EXISTS idx_quinn_orgs_product   ON quinn_orgs(product_name);
+CREATE INDEX IF NOT EXISTS idx_quinn_trends_month   ON quinn_trends(month);
 """
 
 
@@ -358,6 +367,18 @@ def upsert_quinn_org(conn: sqlite3.Connection, row: dict):
             knowledge_base_files=excluded.knowledge_base_files,
             media_library_files=excluded.media_library_files,
             features=excluded.features,
+            updated_at=datetime('now')
+    """, row)
+
+
+def upsert_quinn_trend(conn: sqlite3.Connection, row: dict):
+    conn.execute("""
+        INSERT INTO quinn_trends (month, progressions, activated_orgs, active_orgs, updated_at)
+        VALUES (:month, :progressions, :activated_orgs, :active_orgs, datetime('now'))
+        ON CONFLICT(month) DO UPDATE SET
+            progressions=excluded.progressions,
+            activated_orgs=excluded.activated_orgs,
+            active_orgs=excluded.active_orgs,
             updated_at=datetime('now')
     """, row)
 

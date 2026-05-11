@@ -1425,54 +1425,142 @@ def gtm_deals(
 @app.get("/api/cs/adoption")
 def cs_adoption(search: str = Query(None)):
     """
-    Quinn product adoption metrics for all real customers.
-    Sourced from quinn_orgs table (populated by snapshot_quinn.py).
+    Quinn CS lifecycle dashboard.
+    Combines quinn_orgs (product usage) + quinn_trends (monthly) + deals (HubSpot ARR).
     """
+    from datetime import datetime as _dt
+
     rows = db.q("SELECT * FROM quinn_orgs ORDER BY progressions DESC, mau DESC, org_name ASC")
+    meta = db.q1("SELECT ran_at, status, rows_written, error FROM snapshot_meta WHERE source='quinn'")
+    trends_raw = db.q("SELECT month, progressions, activated_orgs, active_orgs FROM quinn_trends ORDER BY month ASC")
+
+    # HubSpot ARR lookup: build org_name → ARR map, take max ARR per company
+    hs_deals = db.q("SELECT company_name, arr FROM deals WHERE is_closed_won=1 AND status IN ('active','at-risk')")
+    hs_arr: dict = {}
+    for d in hs_deals:
+        name = (d.get("company_name") or "").lower().strip()
+        if name:
+            hs_arr[name] = max(hs_arr.get(name, 0), d.get("arr") or 0)
+
+    def lookup_arr(org_name: str):
+        if not org_name:
+            return None
+        lower = org_name.lower().strip()
+        if lower in hs_arr:
+            return hs_arr[lower]
+        for hs_name, arr in hs_arr.items():
+            if lower in hs_name or hs_name in lower:
+                return arr
+        return None
+
+    today_dt = _dt.now()
+
+    def age_days(created_at: str) -> int:
+        if not created_at:
+            return 999
+        try:
+            return (today_dt - _dt.fromisoformat(created_at[:10])).days
+        except Exception:
+            return 999
+
+    def lifecycle_stage(r: dict, age: int) -> str:
+        prog = r.get("progressions") or 0
+        mau  = r.get("mau") or 0
+        courses = r.get("courses_created") or 0
+        if prog >= 500 and mau >= 30:
+            return "power"
+        if prog >= 100 and mau >= 10:
+            return "engaged"
+        if prog >= 50 and mau == 0 and age > 60:
+            return "dormant"
+        if mau > 0 or prog > 10 or courses > 0:
+            return "active"
+        if age <= 45:
+            return "new"
+        return "never_activated"
+
+    orgs = []
+    for r in rows:
+        age    = age_days(r.get("org_created_at") or "")
+        stage  = lifecycle_stage(r, age)
+        total  = r.get("total_members") or 0
+        lp     = round((r.get("unique_learners") or 0) / total * 100) if total > 0 else 0
+        arr    = lookup_arr(r.get("org_name") or "")
+        prog   = r.get("progressions") or 0
+        mau    = r.get("mau") or 0
+        members = r.get("total_members") or 0
+
+        # Action signals
+        actions = []
+        if prog >= 100 and mau == 0:
+            actions.append("going_cold")
+        elif prog >= 50 and mau == 0 and age > 60:
+            actions.append("going_cold")
+        if 7 <= age <= 60 and prog == 0 and (r.get("courses_created") or 0) == 0:
+            actions.append("onboard_needed")
+        if members >= 30 and lp < 25 and mau > 0:
+            actions.append("low_adoption")
+
+        orgs.append({
+            **r,
+            "learner_pct": lp,
+            "age_days":    age,
+            "lifecycle":   stage,
+            "arr_hs":      arr,
+            "features":    json.loads(r.get("features") or "[]"),
+            "actions":     actions,
+        })
 
     # Optional search filter
     if search:
         s = search.lower()
-        rows = [r for r in rows if s in (r.get("org_name") or "").lower()]
+        orgs = [o for o in orgs if s in (o.get("org_name") or "").lower()]
 
-    # Health classification per org
-    def health(r):
-        if r["mau"] >= 10 and r["progressions"] >= 100:
-            return "green"
-        if r["mau"] > 0 or r["progressions"] > 10:
-            return "yellow"
-        return "red"
+    # Lifecycle summary
+    STAGES = ["power", "engaged", "active", "dormant", "new", "never_activated"]
+    lifecycle: dict = {}
+    for st in STAGES:
+        group = [o for o in orgs if o["lifecycle"] == st]
+        lifecycle[st] = {
+            "count":        len(group),
+            "mau":          sum(o.get("mau") or 0 for o in group),
+            "progressions": sum(o.get("progressions") or 0 for o in group),
+            "arr":          round(sum(o["arr_hs"] or 0 for o in group), 2),
+        }
 
-    orgs = []
-    for r in rows:
-        total = r["total_members"] or 1
-        orgs.append({
-            **r,
-            "learner_pct": round((r["unique_learners"] / total) * 100) if total > 0 else 0,
-            "health": health(r),
-            "features": json.loads(r["features"] or "[]"),
-        })
+    # Action-required list (sorted: going_cold first, then by progressions desc)
+    action_required = [o for o in orgs if o["actions"]]
+    action_required.sort(key=lambda o: (
+        0 if "going_cold" in o["actions"] else 1,
+        -(o.get("progressions") or 0),
+    ))
 
-    green = sum(1 for o in orgs if o["health"] == "green")
-    yellow = sum(1 for o in orgs if o["health"] == "yellow")
-    red = sum(1 for o in orgs if o["health"] == "red")
+    # Monthly trend — last 16 months
+    trends = trends_raw[-16:] if len(trends_raw) >= 16 else trends_raw
+    # Add month labels
+    for t in trends:
+        try:
+            t["label"] = _dt.strptime(t["month"], "%Y-%m").strftime("%b %y")
+        except Exception:
+            t["label"] = t["month"]
 
-    meta = db.q1("SELECT ran_at, status, rows_written, error FROM snapshot_meta WHERE source='quinn'")
+    engaged_plus = lifecycle["power"]["count"] + lifecycle["engaged"]["count"]
 
     return {
         "summary": {
-            "total_orgs":     len(orgs),
-            "total_mau":      sum(o["mau"] for o in orgs),
-            "total_wau":      sum(o["wau"] for o in orgs),
-            "total_members":  sum(o["total_members"] for o in orgs),
-            "total_progressions": sum(o["progressions"] for o in orgs),
-            "hris_connected": sum(o["hris_connected"] for o in orgs),
-            "green_count":    green,
-            "yellow_count":   yellow,
-            "red_count":      red,
+            "total_orgs":         len(orgs),
+            "total_mau":          sum(o.get("mau") or 0 for o in orgs),
+            "total_members":      sum(o.get("total_members") or 0 for o in orgs),
+            "total_progressions": sum(o.get("progressions") or 0 for o in orgs),
+            "hris_connected":     sum(o.get("hris_connected") or 0 for o in orgs),
+            "engaged_plus":       engaged_plus,
+            "action_count":       len(action_required),
         },
-        "orgs": orgs,
-        "meta": meta,
+        "lifecycle":       lifecycle,
+        "action_required": action_required[:25],
+        "trends":          trends,
+        "orgs":            orgs,
+        "meta":            meta,
     }
 
 

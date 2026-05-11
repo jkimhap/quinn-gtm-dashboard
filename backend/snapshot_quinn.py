@@ -132,6 +132,31 @@ def run():
 
         print(f"[snapshot_quinn] Done. Upserted {len(orgs)} orgs.")
 
+        # ── Monthly progression trends ────────────────────────────────────────
+        print("[snapshot_quinn] Fetching monthly progression trends…")
+        try:
+            trend_result = call_mcp_tool(
+                "analytics_get_adoption_trends",
+                {"granularity": "month", "metric": "progressions"},
+            )
+            trend_rows = trend_result.get("rows", [])
+            if trend_rows:
+                with db.tx() as conn:
+                    for row in trend_rows:
+                        month = (row.get("date") or "")[:7]
+                        if month and len(month) == 7:
+                            db.upsert_quinn_trend(conn, {
+                                "month":          month,
+                                "progressions":   row.get("total", 0) or 0,
+                                "activated_orgs": row.get("activatedOrgs", 0) or 0,
+                                "active_orgs":    len(row.get("byOrg") or {}),
+                            })
+                print(f"[snapshot_quinn] Stored {len(trend_rows)} monthly trend rows.")
+            else:
+                print("[snapshot_quinn] No trend rows returned.")
+        except Exception as e:
+            print(f"[snapshot_quinn] Warning: could not fetch trends: {e}", file=sys.stderr)
+
     except Exception as e:
         print(f"[snapshot_quinn] Error: {e}", file=sys.stderr)
         with db.tx() as conn:
