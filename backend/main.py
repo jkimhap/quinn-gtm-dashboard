@@ -1370,7 +1370,7 @@ def gtm_first_calls(days: int = Query(45, ge=7, le=180)):
         results.append({
             "company": company,
             "tier": sheet_tier,
-            "tier_raw": tier,
+            "tier_raw": raw_tier,
             "call_date": (call["started_at"] or "")[:10],
             "rep": rep_name,
             "rep_slug": call.get("rep_slug") or "",
